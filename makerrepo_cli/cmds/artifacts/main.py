@@ -3,14 +3,14 @@ import pathlib
 
 import click
 import rich
+from mr.artifacts.registry import collect
+from mr.artifacts.registry import Registry
+from mr.artifacts.utils import load_module
 from rich import box
 from rich.markup import escape
 from rich.padding import Padding
 from rich.table import Table
 
-from ...artifacts.registry import collect
-from ...artifacts.registry import Registry
-from ...artifacts.utils import load_module
 from ..environment import Environment
 from ..environment import pass_env
 from .cli import cli

@@ -6,10 +6,10 @@ import pytest
 import pytest_asyncio
 import websockets
 from click.testing import CliRunner
-from mr.cmds.main import cli
 from pytest import MonkeyPatch
 
 from .helper import switch_cwd
+from makerrepo_cli.cmds.main import cli
 
 
 DEFAULT_MOCK_CONFIG = {
