@@ -116,7 +116,7 @@ def snapshot(
     """Capture a screenshot from artifacts."""
     import asyncio
 
-    from ...artifacts.capture_image import CADViewerService
+    from .capture_image import CADViewerService
 
     registry = collect_artifacts(module)
     if not artifacts:
