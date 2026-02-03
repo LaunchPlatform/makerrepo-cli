@@ -195,37 +195,3 @@ class CADViewerService:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit."""
         await self.stop()
-
-
-async def main():
-    """Download model file and take a screenshot."""
-    import httpx
-
-    logger = logging.getLogger(__name__)
-    model_url = "https://makerrepo.com/r/fangpenlin/open-models/artifact/master/5081ffa2-d61f-4925-87e3-573ec291b53c/model.json"
-    output_path = pathlib.Path("model_screenshot.png")
-
-    logger.info("Downloading model from %s...", model_url)
-    async with httpx.AsyncClient(follow_redirects=True) as client:
-        response = await client.get(model_url)
-        response.raise_for_status()
-        model_data = response.json()
-
-    logger.info("Model downloaded successfully")
-    logger.info("Starting CAD viewer service...")
-
-    async with CADViewerService(logger=logger) as viewer:
-        logger.info("Loading CAD model data...")
-        await viewer.load_cad_data(model_data)
-
-        logger.info("Taking screenshot...")
-        screenshot_bytes = await viewer.take_screenshot()
-
-        # Save screenshot to file
-        output_path.write_bytes(screenshot_bytes)
-        logger.info("Screenshot saved to %s", output_path.absolute())
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    asyncio.run(main())
