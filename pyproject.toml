@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "click>=8.3.1",
-    "makerrepo>=0.2.0",
+    "makerrepo>=0.3.7",
     "ocp-vscode>=3.0.1",
     "playwright>=1.58.0",
     "rich>=13.0.0",
