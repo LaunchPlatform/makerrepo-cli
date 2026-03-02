@@ -1,12 +1,19 @@
 import logging
 import pathlib
+import sys
 
 import click
+import questionary
 import rich
 from mr.artifacts.registry import Registry
 from rich import box
 from rich.markup import escape
 from rich.padding import Padding
+from rich.progress import BarColumn
+from rich.progress import Progress
+from rich.progress import SpinnerColumn
+from rich.progress import TaskProgressColumn
+from rich.progress import TextColumn
 from rich.table import Table
 
 from ..environment import Environment
@@ -25,6 +32,24 @@ def _all_artifacts_flat(registry: Registry) -> list[tuple[str, str, object]]:
     for module_name, artifacts in registry.artifacts.items():
         for artifact_name, artifact in artifacts.items():
             yield (module_name, artifact_name, artifact)
+
+
+def _prompt_artifact_selection(registry: Registry) -> list | None:
+    """Show an interactive checkbox prompt to select artifact(s). Returns selected artifacts or None if cancelled."""
+    flat = list(_all_artifacts_flat(registry))
+    if not flat:
+        return None
+    if len(flat) == 1:
+        return [flat[0][2]]
+    choices = [
+        questionary.Choice(title=f"{mod}/{name}", value=art) for mod, name, art in flat
+    ]
+    selected = questionary.checkbox(
+        "Select artifact(s) (Space to toggle, Enter to confirm)",
+        choices=choices,
+        validate=lambda x: (True if len(x) > 0 else "Select at least one artifact"),
+    ).ask()
+    return list(selected) if selected else None
 
 
 def _resolve_artifacts(registry: Registry, names: tuple[str, ...]) -> list:
@@ -54,6 +79,51 @@ def _resolve_artifacts(registry: Registry, names: tuple[str, ...]) -> list:
                 )
             result.append(candidates[0][1])
     return result
+
+
+_REALIZE_CACHE: dict[tuple[str, str], object] = {}
+
+
+def _realize_artifacts(
+    target_artifacts: list,
+    *,
+    show_progress: bool = True,
+) -> list:
+    """Run artifact.func() for each artifact, with progress bar and in-process cache."""
+    if not target_artifacts:
+        return []
+    realized: list = []
+    total = len(target_artifacts)
+
+    def do_one(artifact) -> object:
+        key = (getattr(artifact, "module", ""), getattr(artifact, "name", ""))
+        if key in _REALIZE_CACHE:
+            return _REALIZE_CACHE[key]
+        value = artifact.func()
+        _REALIZE_CACHE[key] = value
+        return value
+
+    if show_progress and total > 0:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+        ) as progress:
+            task = progress.add_task("Realizing artifacts...", total=total)
+            for artifact in target_artifacts:
+                label = (
+                    f"{getattr(artifact, 'module', '')}/{getattr(artifact, 'name', '')}".strip(
+                        "/"
+                    )
+                    or "artifact"
+                )
+                progress.update(task, description=f"Realizing {label}...")
+                realized.append(do_one(artifact))
+                progress.advance(task)
+    else:
+        realized = [do_one(a) for a in target_artifacts]
+    return realized
 
 
 @cli.command(name="list", help="List artifacts")
@@ -98,18 +168,25 @@ def view(env: Environment, artifacts: tuple[str, ...], port: int):
         logger.error("No artifacts found")
         return
     if not artifacts:
-        _, _, first = next(_all_artifacts_flat(registry))
-        logger.info(
-            "No artifacts provided, using first: %s/%s",
-            first.module,
-            first.name,
+        target_artifacts = _prompt_artifact_selection(registry)
+        if target_artifacts is None:
+            logger.error("No artifacts selected")
+            return
+        artifact_args = " ".join(
+            f"{getattr(a, 'module', '')}/{getattr(a, 'name', '')}".strip("/")
+            or getattr(a, "name", "artifact")
+            for a in target_artifacts
         )
-        target_artifacts = [first]
+        env.logger.info(
+            "Tip: To skip the prompt next time, run: %s artifacts view %s",
+            "mr",
+            artifact_args,
+        )
     else:
         target_artifacts = _resolve_artifacts(registry, artifacts)
 
-    # TODO: this is going to be a bit slow, provide a progress bar & cache?
-    realized_artifacts = [artifact.func() for artifact in target_artifacts]
+    # Realize artifacts (with progress bar and in-process cache)
+    realized_artifacts = _realize_artifacts(target_artifacts)
     # defer the import to make testing mocking much easier
     from ocp_vscode import show
 
@@ -148,18 +225,13 @@ def snapshot(env: Environment, artifacts: tuple[str, ...], output: pathlib.Path)
         logger.error("No artifacts found")
         return
     if not artifacts:
-        _, _, first = next(_all_artifacts_flat(registry))
-        env.logger.info(
-            "No artifacts provided, using first: %s/%s",
-            first.module,
-            first.name,
-        )
-        target_artifacts = [first]
+        target_artifacts = _prompt_artifact_selection(registry)
+        if target_artifacts is None:
+            return
     else:
         target_artifacts = _resolve_artifacts(registry, artifacts)
 
-    # Realize artifacts
-    realized_artifacts = [artifact.func() for artifact in target_artifacts]
+    realized_artifacts = _realize_artifacts(target_artifacts)
 
     # Convert to model data format using convert from utils
     model_data = convert(realized_artifacts)

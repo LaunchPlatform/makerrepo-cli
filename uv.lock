@@ -877,6 +877,7 @@ dependencies = [
     { name = "makerrepo" },
     { name = "ocp-vscode" },
     { name = "playwright" },
+    { name = "questionary" },
     { name = "rich" },
 ]
 
@@ -893,6 +894,7 @@ requires-dist = [
     { name = "makerrepo", specifier = ">=0.3.7" },
     { name = "ocp-vscode", specifier = ">=3.0.1" },
     { name = "playwright", specifier = ">=1.58.0" },
+    { name = "questionary", specifier = ">=2.1.0" },
     { name = "rich", specifier = ">=13.0.0" },
 ]
 

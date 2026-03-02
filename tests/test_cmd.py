@@ -142,6 +142,16 @@ async def test_view(
 
     def operate():
         with switch_cwd(fixtures_folder):
+            from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
+            from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+
+            registry = collect_from_repo()
+            flat = list(_all_artifacts_flat(registry))
+            first_artifact = flat[0][2]
+            monkeypatch.setattr(
+                "makerrepo_cli.cmds.artifacts.main._prompt_artifact_selection",
+                lambda reg: [first_artifact],
+            )
             result = cli_runner.invoke(
                 cli,
                 ["artifacts", "view", "-p", unused_tcp_port],
@@ -164,8 +174,18 @@ async def test_snapshot(
     monkeypatch.syspath_prepend(fixtures_folder)
 
     def operate():
-        output_file = tmp_path / "test_snapshot.png"
         with switch_cwd(fixtures_folder):
+            from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
+            from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+
+            registry = collect_from_repo()
+            flat = list(_all_artifacts_flat(registry))
+            first_artifact = flat[0][2]
+            monkeypatch.setattr(
+                "makerrepo_cli.cmds.artifacts.main._prompt_artifact_selection",
+                lambda reg: [first_artifact],
+            )
+            output_file = tmp_path / "test_snapshot.png"
             result = cli_runner.invoke(
                 cli,
                 ["artifacts", "snapshot", "-o", str(output_file)],
