@@ -90,7 +90,7 @@ class CADViewerService:
 
         # Set up message handler for postMessage from the page
         async def handle_console(msg):
-            self.logger.info("Console: %s", msg)
+            self.logger.debug("Console: %s", msg)
 
         self.page.on("console", handle_console)
 
