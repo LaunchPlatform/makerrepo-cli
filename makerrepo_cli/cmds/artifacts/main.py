@@ -1,5 +1,6 @@
 import logging
 import pathlib
+from enum import StrEnum
 
 import click
 
@@ -17,6 +18,7 @@ from ..shared import prompt_item_selection
 from ..shared import resolve_items
 from ..shared import run_with_progress
 from .cli import cli
+from .ocp_data_types import OcpPayload
 from .utils import collect_from_repo
 from .utils import convert
 
@@ -55,6 +57,54 @@ def _realize_artifacts(
     )
 
 
+def _rgba_to_hex(rgba: tuple[float, ...]) -> str:
+    """Convert (r,g,b) or (r,g,b,a) in 0-1 range to #RRGGBB hex string."""
+    r, g, b = int(rgba[0] * 255), int(rgba[1] * 255), int(rgba[2] * 255)
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+class Colormap(StrEnum):
+    NONE = "none"
+    TAB10 = "tab10"
+    TAB20 = "tab20"
+    TAB20B = "tab20b"
+    TAB20C = "tab20c"
+    SET1 = "set1"
+    SET2 = "set2"
+    SET3 = "set3"
+    PAIRED = "paired"
+    DARK2 = "dark2"
+    PASTEL1 = "pastel1"
+    PASTEL2 = "pastel2"
+    ACCENT = "accent"
+    GOLDEN_RATIO = "golden_ratio"
+    SEEDED = "seeded"
+    SEGMENTED = "segmented"
+    LISTED = "listed"
+
+
+def _get_colormap(colormap: Colormap | str):
+    from ocp_vscode import ColorMap
+
+    name = colormap.lower() if isinstance(colormap, str) else colormap.value
+    if name == Colormap.NONE.value:
+        return None
+
+    method = getattr(ColorMap, name)
+    return method()
+
+
+def _apply_colormap_to_payload(payload: OcpPayload, colormap: Colormap | str) -> None:
+    """Apply a colormap to each part in the payload (mutates in place)."""
+    cmap = _get_colormap(colormap)
+    if cmap is None:
+        return
+
+    for part in payload.data.shapes.parts:
+        color_tuple = next(cmap)
+        part.color = _rgba_to_hex(color_tuple)
+
+
 @cli.command(name="list", help="List artifacts")
 @pass_env
 def list_artifacts(env: Environment):
@@ -75,8 +125,27 @@ def list_artifacts(env: Environment):
 @click.option(
     "-p", "--port", help="OCP Viewer port to send the model data to", default=3939
 )
+@click.option(
+    "--colormap",
+    type=click.Choice([c.value for c in Colormap], case_sensitive=False),
+    default=Colormap.NONE.value,
+    show_default=True,
+    help="Colormap to use for coloring artifacts (use 'none' to disable)",
+)
+@click.option(
+    "--no-colormap",
+    is_flag=True,
+    default=False,
+    help="Disable colormap (same as --colormap none)",
+)
 @pass_env
-def view(env: Environment, artifacts: tuple[str, ...], port: int):
+def view(
+    env: Environment,
+    artifacts: tuple[str, ...],
+    port: int,
+    colormap: str,
+    no_colormap: bool,
+):
     registry = collect_from_repo()
     if not registry.artifacts:
         logger.error("No artifacts found")
@@ -100,11 +169,16 @@ def view(env: Environment, artifacts: tuple[str, ...], port: int):
     realized_artifacts = _realize_artifacts(target_artifacts)
     from ocp_vscode import show
 
-    show(
-        *realized_artifacts,
-        port=port,
-        names=[item_safe_filename(a, "artifact") for a in target_artifacts],
-    )
+    show_kwargs: dict = {
+        "port": port,
+        "names": [item_safe_filename(a, "artifact") for a in target_artifacts],
+    }
+    effective_colormap = Colormap.NONE.value if no_colormap else colormap
+    cmap = _get_colormap(effective_colormap)
+    if cmap is not None:
+        show_kwargs["colors"] = cmap
+
+    show(*realized_artifacts, **show_kwargs)
 
 
 @cli.command(help="Export artifact(s) to STEP, STL, BREP, glTF, 3MF, SVG, or DXF")
@@ -212,8 +286,27 @@ def export(
     default="snapshot.png",
     type=click.Path(path_type=pathlib.Path),
 )
+@click.option(
+    "--colormap",
+    type=click.Choice([c.value for c in Colormap], case_sensitive=False),
+    default=Colormap.TAB10.value,
+    show_default=True,
+    help="Colormap to use for coloring artifacts (use 'none' to disable)",
+)
+@click.option(
+    "--no-colormap",
+    is_flag=True,
+    default=False,
+    help="Disable colormap (same as --colormap none)",
+)
 @pass_env
-def snapshot(env: Environment, artifacts: tuple[str, ...], output: pathlib.Path):
+def snapshot(
+    env: Environment,
+    artifacts: tuple[str, ...],
+    output: pathlib.Path,
+    colormap: str,
+    no_colormap: bool,
+):
     """Capture a screenshot from artifacts."""
     import asyncio
 
@@ -244,6 +337,9 @@ def snapshot(env: Environment, artifacts: tuple[str, ...], output: pathlib.Path)
 
     # Convert to model data format using convert from utils
     model_data = convert(realized_artifacts)
+
+    effective_colormap = Colormap.NONE.value if no_colormap else colormap
+    _apply_colormap_to_payload(model_data, effective_colormap)
 
     async def capture_snapshot():
         env.logger.info("Starting CAD viewer service...")
