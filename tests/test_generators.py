@@ -1,0 +1,222 @@
+import pathlib
+
+import pytest
+from click.testing import CliRunner
+from pytest import MonkeyPatch
+
+from .helper import switch_cwd
+from makerrepo_cli.cmds.main import cli
+
+
+def test_generators_list(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+):
+    """Test that generators list runs (no @customizable in fixtures -> No generators found)."""
+    monkeypatch.syspath_prepend(fixtures_folder)
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(cli, ["generators", "list"], catch_exceptions=False)
+
+    assert result.exit_code == 0
+    assert "No generators found" in result.output or "Generators" in result.output
+
+
+def test_export_no_generators(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """Export with no generators in repo must report No generators found."""
+    monkeypatch.syspath_prepend(fixtures_folder)
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            ["generators", "export", "-o", str(tmp_path / "out.step")],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    assert "No generators found" in result.output
+    assert not (tmp_path / "out.step").exists()
+
+
+def test_export_invalid_payload(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """Export with invalid JSON payload must report Invalid payload."""
+    from build123d import Box
+
+    # Mock generator: func(payload) -> object with .part (Shape)
+    class MockGen:
+        module = "examples"
+        name = "box_gen"
+
+        def func(self, payload):
+            return type("Obj", (), {"part": Box(1, 1, 1)})()
+
+    mock_registry = type(
+        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+    )()
+
+    def collect_mock(cwd=None):
+        return mock_registry
+
+    monkeypatch.syspath_prepend(fixtures_folder)
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.collect_from_repo",
+        collect_mock,
+    )
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "generators",
+                "export",
+                "-p",
+                "not valid json",
+                "-o",
+                str(tmp_path / "out.step"),
+                "box_gen",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    assert "Invalid payload" in result.output
+    assert not (tmp_path / "out.step").exists()
+
+
+def test_export_unknown_extension(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """Export with unknown output extension must error and not create any file."""
+    from build123d import Box
+
+    class MockGen:
+        module = "examples"
+        name = "box_gen"
+
+        def func(self, payload):
+            return type("Obj", (), {"part": Box(1, 1, 1)})()
+
+    mock_registry = type(
+        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+    )()
+
+    monkeypatch.syspath_prepend(fixtures_folder)
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.collect_from_repo",
+        lambda cwd=None: mock_registry,
+    )
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "generators",
+                "export",
+                "-o",
+                str(tmp_path / "out.xyz"),
+                "box_gen",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    assert "Unknown output extension" in result.output
+    assert ".xyz" in result.output
+    assert "Supported:" in result.output
+    assert not (tmp_path / "out.xyz").exists()
+
+
+def test_export_single_generator_step(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """Export single generator to STEP file."""
+    from build123d import Box
+
+    class MockGen:
+        module = "examples"
+        name = "box_gen"
+
+        def func(self, payload):
+            return type("Obj", (), {"part": Box(5, 5, 5)})()
+
+    mock_registry = type(
+        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+    )()
+
+    monkeypatch.syspath_prepend(fixtures_folder)
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.collect_from_repo",
+        lambda cwd=None: mock_registry,
+    )
+
+    with switch_cwd(fixtures_folder):
+        output_file = tmp_path / "box.step"
+        result = cli_runner.invoke(
+            cli,
+            [
+                "generators",
+                "export",
+                "-o",
+                str(output_file),
+                "box_gen",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    assert output_file.exists()
+    content = output_file.read_text()
+    assert "ISO-10303-21" in content
+
+
+def test_snapshot_no_generators(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """Snapshot with no generators in repo must report No generators found."""
+    monkeypatch.syspath_prepend(fixtures_folder)
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            ["generators", "snapshot", "-o", str(tmp_path / "snap.png")],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    assert "No generators found" in result.output
+    assert not (tmp_path / "snap.png").exists()
+
+
+def test_view_no_generators(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+):
+    """View with no generators in repo must report No generators found."""
+    monkeypatch.syspath_prepend(fixtures_folder)
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(cli, ["generators", "view"], catch_exceptions=False)
+
+    assert result.exit_code == 0
+    assert "No generators found" in result.output
