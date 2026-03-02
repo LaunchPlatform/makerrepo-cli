@@ -1,6 +1,7 @@
 # makerrepo-cli
 
-Command-line tool for [MakerRepo](https://makerrepo.com). Build CAD models from code (e.g. Build123D), collect and work with artifacts locally, and run your full Manufacturing as Code workflow from your own machine—without depending on MakerRepo.com.
+Command-line tool for manufacturing as code with or without [MakerRepo](https://makerrepo.com) account.
+Build CAD models from code (e.g. Build123D), collect and work with artifacts locally, and run your full Manufacturing as Code workflow from your own machine—without depending on MakerRepo.com.
 
 ## Installation
 
