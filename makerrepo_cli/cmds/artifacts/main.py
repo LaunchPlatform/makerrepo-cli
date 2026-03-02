@@ -147,7 +147,7 @@ def view(
         logger.error("No artifacts found")
         return
     if not artifacts:
-        target_artifacts = prompt_item_selection(registry, "artifacts", "artifact")
+        target_artifacts = _prompt_artifact_selection(registry)
         if target_artifacts is None:
             logger.error("No artifacts selected")
             return
@@ -215,7 +215,7 @@ def export(
             return
 
     if not artifacts:
-        target_artifacts = prompt_item_selection(registry, "artifacts", "artifact")
+        target_artifacts = _prompt_artifact_selection(registry)
         if target_artifacts is None:
             logger.error("No artifacts selected")
             return
@@ -306,7 +306,7 @@ def snapshot(
         logger.error("No artifacts found")
         return
     if not artifacts:
-        target_artifacts = prompt_item_selection(registry, "artifacts", "artifact")
+        target_artifacts = _prompt_artifact_selection(registry)
         if target_artifacts is None:
             logger.error("No artifacts selected")
             return
