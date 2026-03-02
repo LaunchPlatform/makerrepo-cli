@@ -27,6 +27,12 @@ TABLE_HEADER_STYLE = "yellow"
 TABLE_COLUMN_STYLE = "cyan"
 
 
+def _artifact_display_name(artifact) -> str:
+    """Return display name for an artifact (e.g. 'module/name' or 'artifact')."""
+    s = f"{getattr(artifact, 'module', '')}/{getattr(artifact, 'name', '')}".strip("/")
+    return s or getattr(artifact, "name", "artifact")
+
+
 def _all_artifacts_flat(registry: Registry) -> list[tuple[str, str, object]]:
     """Yield (module_name, artifact_name, artifact) for every artifact."""
     for module_name, artifacts in registry.artifacts.items():
@@ -112,12 +118,7 @@ def _realize_artifacts(
         ) as progress:
             task = progress.add_task("Realizing artifacts...", total=total)
             for artifact in target_artifacts:
-                label = (
-                    f"{getattr(artifact, 'module', '')}/{getattr(artifact, 'name', '')}".strip(
-                        "/"
-                    )
-                    or "artifact"
-                )
+                label = _artifact_display_name(artifact)
                 progress.update(task, description=f"Realizing {label}...")
                 realized.append(do_one(artifact))
                 progress.advance(task)
@@ -172,11 +173,7 @@ def view(env: Environment, artifacts: tuple[str, ...], port: int):
         if target_artifacts is None:
             logger.error("No artifacts selected")
             return
-        artifact_args = " ".join(
-            f"{getattr(a, 'module', '')}/{getattr(a, 'name', '')}".strip("/")
-            or getattr(a, "name", "artifact")
-            for a in target_artifacts
-        )
+        artifact_args = " ".join(_artifact_display_name(a) for a in target_artifacts)
         env.logger.info(
             "Tip: To skip the prompt next time, run: %s artifacts view %s",
             "mr",
@@ -227,7 +224,15 @@ def snapshot(env: Environment, artifacts: tuple[str, ...], output: pathlib.Path)
     if not artifacts:
         target_artifacts = _prompt_artifact_selection(registry)
         if target_artifacts is None:
+            logger.error("No artifacts selected")
             return
+        artifact_args = " ".join(_artifact_display_name(a) for a in target_artifacts)
+        env.logger.info(
+            "Tip: To skip the prompt next time, run: %s artifacts snapshot -o %s %s",
+            "mr",
+            output,
+            artifact_args,
+        )
     else:
         target_artifacts = _resolve_artifacts(registry, artifacts)
 
