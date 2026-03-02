@@ -83,6 +83,9 @@ class Colormap(StrEnum):
     LISTED = "listed"
 
 
+DEFAULT_COLORMAP = Colormap.NONE
+
+
 def _get_colormap(colormap: Colormap | str):
     from ocp_vscode import ColorMap
 
@@ -128,15 +131,9 @@ def list_artifacts(env: Environment):
 @click.option(
     "--colormap",
     type=click.Choice([c.value for c in Colormap], case_sensitive=False),
-    default=Colormap.NONE.value,
+    default=DEFAULT_COLORMAP.value,
     show_default=True,
     help="Colormap to use for coloring artifacts (use 'none' to disable)",
-)
-@click.option(
-    "--no-colormap",
-    is_flag=True,
-    default=False,
-    help="Disable colormap (same as --colormap none)",
 )
 @pass_env
 def view(
@@ -144,7 +141,6 @@ def view(
     artifacts: tuple[str, ...],
     port: int,
     colormap: str,
-    no_colormap: bool,
 ):
     registry = collect_from_repo()
     if not registry.artifacts:
@@ -173,7 +169,7 @@ def view(
         "port": port,
         "names": [item_safe_filename(a, "artifact") for a in target_artifacts],
     }
-    effective_colormap = Colormap.NONE.value if no_colormap else colormap
+    effective_colormap = Colormap(colormap)
     cmap = _get_colormap(effective_colormap)
     if cmap is not None:
         show_kwargs["colors"] = cmap
@@ -289,15 +285,9 @@ def export(
 @click.option(
     "--colormap",
     type=click.Choice([c.value for c in Colormap], case_sensitive=False),
-    default=Colormap.TAB10.value,
+    default=DEFAULT_COLORMAP.value,
     show_default=True,
     help="Colormap to use for coloring artifacts (use 'none' to disable)",
-)
-@click.option(
-    "--no-colormap",
-    is_flag=True,
-    default=False,
-    help="Disable colormap (same as --colormap none)",
 )
 @pass_env
 def snapshot(
@@ -305,7 +295,6 @@ def snapshot(
     artifacts: tuple[str, ...],
     output: pathlib.Path,
     colormap: str,
-    no_colormap: bool,
 ):
     """Capture a screenshot from artifacts."""
     import asyncio
@@ -338,7 +327,7 @@ def snapshot(
     # Convert to model data format using convert from utils
     model_data = convert(realized_artifacts)
 
-    effective_colormap = Colormap.NONE.value if no_colormap else colormap
+    effective_colormap = Colormap(colormap)
     _apply_colormap_to_payload(model_data, effective_colormap)
 
     async def capture_snapshot():
