@@ -23,6 +23,12 @@ from .utils import collect_from_repo
 from .utils import convert
 
 logger = logging.getLogger(__name__)
+
+# Supported export formats: 3D (build123d export_* / Mesher) and 2D (project then ExportSVG/ExportDXF)
+EXPORT_FORMATS_3D = ("step", "stl", "brep", "gltf", "3mf")
+EXPORT_FORMATS_2D = ("svg", "dxf")
+EXPORT_FORMATS = (*EXPORT_FORMATS_3D, *EXPORT_FORMATS_2D)
+DEFAULT_FORMAT = "step"
 TABLE_HEADER_STYLE = "yellow"
 TABLE_COLUMN_STYLE = "cyan"
 
@@ -127,6 +133,62 @@ def _realize_artifacts(
     return realized
 
 
+def _get_shape(obj: object):
+    """Return a build123d Shape from a realized artifact (e.g. BasePartObject.part or Shape)."""
+    return getattr(obj, "part", obj)
+
+
+def _export_shape_to_path(shape, path: pathlib.Path, fmt: str) -> None:
+    """Export a single build123d Shape to path using format fmt. Uses lazy build123d imports."""
+    fmt_lower = fmt.lower()
+    path = pathlib.Path(path)
+
+    if fmt_lower in EXPORT_FORMATS_3D:
+        from build123d import export_brep
+        from build123d import export_gltf
+        from build123d import export_step
+        from build123d import export_stl
+        from build123d import Mesher
+
+        if fmt_lower == "step":
+            export_step(shape, path)
+        elif fmt_lower == "stl":
+            export_stl(shape, path)
+        elif fmt_lower == "brep":
+            export_brep(shape, path)
+        elif fmt_lower == "gltf":
+            export_gltf(shape, path)
+        elif fmt_lower == "3mf":
+            mesher = Mesher()
+            mesher.add_shape(shape)
+            mesher.write(path)
+    elif fmt_lower in EXPORT_FORMATS_2D:
+        # 2D: project 3D to viewport then export
+        from build123d import Compound
+        from build123d import ExportDXF
+        from build123d import ExportSVG
+        from build123d import LineType
+        from build123d import Unit
+
+        view_port_origin = (-100, -50, 30)  # default camera position for projection
+        visible, hidden = shape.project_to_viewport(view_port_origin)
+        max_dimension = max(*Compound(children=visible + hidden).bounding_box().size)
+        scale = 100 / max_dimension if max_dimension > 0 else 1.0
+
+        if fmt_lower == "svg":
+            exporter = ExportSVG(scale=scale)
+        else:  # dxf
+            exporter = ExportDXF(unit=Unit.MM)
+
+        exporter.add_layer("Visible")
+        exporter.add_layer("Hidden", line_type=LineType.ISO_DOT)
+        exporter.add_shape(visible, layer="Visible")
+        exporter.add_shape(hidden, layer="Hidden")
+        exporter.write(path)
+    else:
+        logger.error("Unsupported export format: %s", fmt)
+
+
 @cli.command(name="list", help="List artifacts")
 @pass_env
 def list_artifacts(env: Environment):
@@ -191,14 +253,102 @@ def view(env: Environment, artifacts: tuple[str, ...], port: int):
     show(realized_artifacts, port=port)
 
 
-@cli.command(help="Export artifact")
+@cli.command(help="Export artifact(s) to STEP, STL, BREP, glTF, 3MF, SVG, or DXF")
+@click.argument("ARTIFACTS", nargs=-1)
+@click.option(
+    "-o",
+    "--output",
+    help="Output file or directory (default: current directory)",
+    default=".",
+    type=click.Path(path_type=pathlib.Path),
+)
+@click.option(
+    "-f",
+    "--format",
+    "fmt",
+    help="Export format (default: step, or inferred from -o extension)",
+    type=click.Choice(EXPORT_FORMATS, case_sensitive=False),
+    default=None,
+)
 @pass_env
-def export(env: Environment):
+def export(
+    env: Environment, artifacts: tuple[str, ...], output: pathlib.Path, fmt: str | None
+):
     registry = collect_from_repo()
     if not registry.artifacts:
         logger.error("No artifacts found")
         return
-    # TODO:
+
+    # Reject unknown output extensions so we never write with a wrong/misleading ext
+    if output.suffix:
+        ext_normalized = output.suffix.lower().lstrip(".")
+        if ext_normalized not in EXPORT_FORMATS:
+            logger.error(
+                "Unknown output extension %s. Supported: %s",
+                output.suffix,
+                ", ".join(EXPORT_FORMATS),
+            )
+            return
+
+    if not artifacts:
+        target_artifacts = _prompt_artifact_selection(registry)
+        if target_artifacts is None:
+            logger.error("No artifacts selected")
+            return
+        artifact_args = " ".join(_artifact_display_name(a) for a in target_artifacts)
+        env.logger.info(
+            "Tip: To skip the prompt next time, run: %s artifacts export -o <path> %s",
+            "mr",
+            artifact_args,
+        )
+    else:
+        target_artifacts = _resolve_artifacts(registry, artifacts)
+
+    realized = _realize_artifacts(target_artifacts)
+    shapes = [_get_shape(obj) for obj in realized]
+
+    # Infer format from output path if not given
+    if fmt is None:
+        if output.suffix and output.suffix.lower().lstrip(".") in EXPORT_FORMATS:
+            fmt = output.suffix.lower().lstrip(".")
+        else:
+            fmt = DEFAULT_FORMAT
+
+    ext = f".{fmt}" if fmt != "step" else ".step"
+    output_resolved = output.resolve()
+
+    if len(shapes) == 0:
+        logger.error("No shapes to export")
+        return
+
+    # Single shape and output path has a file extension -> write to that file
+    if len(shapes) == 1 and output_resolved.suffix:
+        _export_shape_to_path(shapes[0], output_resolved, fmt)
+        env.logger.info("Exported to %s", output_resolved)
+        return
+
+    # Multiple shapes and output path has a file extension -> one compound to that file
+    if len(shapes) > 1 and output_resolved.suffix:
+        from build123d import Compound
+
+        compound = Compound(children=shapes)
+        _export_shape_to_path(compound, output_resolved, fmt)
+        env.logger.info("Exported %d artifact(s) to %s", len(shapes), output_resolved)
+        return
+
+    # Output is a directory: one file per artifact
+    out_dir = output_resolved if output_resolved.is_dir() else output_resolved
+    if not out_dir.is_dir():
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+    for artifact, shape in zip(target_artifacts, shapes):
+        mod = getattr(artifact, "module", "")
+        name = getattr(artifact, "name", "artifact")
+        safe_name = f"{mod}_{name}".strip("_") if mod else name
+        safe_name = safe_name.replace("/", "_")
+        out_path = out_dir / f"{safe_name}{ext}"
+        _export_shape_to_path(shape, out_path, fmt)
+        env.logger.info("Exported to %s", out_path)
 
 
 @cli.command(name="snapshot", help="Capture a snapshot from artifacts")

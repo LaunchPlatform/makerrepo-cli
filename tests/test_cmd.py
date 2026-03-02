@@ -203,3 +203,92 @@ async def test_snapshot(
 
     # Use real CADViewerService - increase timeout for browser launch
     await asyncio.wait_for(asyncio.to_thread(operate), 60)
+
+
+def test_export_unknown_extension(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """Export with unknown output extension must error and not create any file."""
+    monkeypatch.syspath_prepend(fixtures_folder)
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            ["artifacts", "export", "-o", str(tmp_path / "out.xyz")],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    assert "Unknown output extension" in result.output
+    assert ".xyz" in result.output
+    assert "Supported:" in result.output
+    assert not (tmp_path / "out.xyz").exists()
+
+
+def test_export_single_artifact_step(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """Export single artifact to STEP file."""
+    monkeypatch.syspath_prepend(fixtures_folder)
+
+    with switch_cwd(fixtures_folder):
+        from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
+        from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+
+        registry = collect_from_repo()
+        flat = list(_all_artifacts_flat(registry))
+        first_artifact = flat[0][2]
+        monkeypatch.setattr(
+            "makerrepo_cli.cmds.artifacts.main._prompt_artifact_selection",
+            lambda reg: [first_artifact],
+        )
+        output_file = tmp_path / "box.step"
+        result = cli_runner.invoke(
+            cli,
+            ["artifacts", "export", "-o", str(output_file)],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    assert output_file.exists()
+    content = output_file.read_text()
+    assert "ISO-10303-21" in content
+
+
+def test_export_with_artifact_name_to_stl(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """Export by artifact name to STL in directory."""
+    monkeypatch.syspath_prepend(fixtures_folder)
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "artifacts",
+                "export",
+                "-o",
+                str(tmp_path),
+                "-f",
+                "stl",
+                "examples/main",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    stl_file = tmp_path / "examples_main.stl"
+    assert stl_file.exists()
+    data = stl_file.read_bytes()
+    assert len(data) > 0
+    # ASCII STL starts with "solid"; binary STL has 80-byte header + 4-byte count
+    assert b"solid" in data[:100] or len(data) >= 84
