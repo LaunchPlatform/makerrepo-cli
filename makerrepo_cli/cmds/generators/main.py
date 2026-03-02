@@ -65,8 +65,9 @@ def _format_validation_error(e: ValidationError) -> str:
 def _validate_params(
     customizable: Customizable,
     payload: dict,
-) -> BaseModel | dict:
-    """Validate payload against the generator's parameters_schema; return validated model or payload when no schema."""
+) -> BaseModel | dict | None:
+    """Validate payload against the generator's parameters_schema; return validated model or payload when no schema.
+    Returns None on validation failure (error is logged)."""
     schema = getattr(customizable, "parameters_schema", None)
     if schema is None:
         return payload
@@ -79,9 +80,7 @@ def _validate_params(
             gen_name,
             _format_validation_error(e),
         )
-        raise click.ClickException(
-            f"Payload validation failed for {gen_name}: {e.args[0] if e.args else 'Invalid parameters'}"
-        )
+        return None
 
 
 def _realize_generator(
@@ -181,6 +180,8 @@ def view(
             exit(-1)
 
     params = _validate_params(target, payload_dict)
+    if params is None:
+        sys.exit(1)
     realized = _realize_generator(target, params)
     from ocp_vscode import show
 
@@ -266,6 +267,8 @@ def export(
 
     gen = target[0]
     params = _validate_params(gen, payload_dict)
+    if params is None:
+        sys.exit(1)
     realized = _realize_generator(gen, params)
     shape = get_shape(realized)
 
@@ -366,6 +369,8 @@ def snapshot(
 
     gen = target[0]
     params = _validate_params(gen, payload_dict)
+    if params is None:
+        sys.exit(1)
     realized = _realize_generator(gen, params)
     model_data = convert(realized)
 

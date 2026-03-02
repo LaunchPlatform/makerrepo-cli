@@ -314,7 +314,7 @@ def test_export_payload_validation_fails(
             catch_exceptions=False,
         )
 
-    assert result.exit_code == 0
+    assert result.exit_code == 1
     assert "Payload validation failed" in result.output
     assert not (tmp_path / "out.step").exists()
 
