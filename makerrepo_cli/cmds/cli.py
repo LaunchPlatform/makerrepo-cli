@@ -2,12 +2,17 @@ import logging
 import os
 
 import click
+from click.shell_completion import get_completion_class
 from rich.logging import RichHandler
 
 from .environment import Environment
 from .environment import LOG_LEVEL_MAP
 from .environment import LogLevel
 from .environment import pass_env
+
+# Used by the completion command to generate shell scripts (env var for Click completion)
+COMPLETE_VAR = "_MR_COMPLETE"
+PROG_NAME = "mr"
 
 
 @click.group(help="Command line tools for MakerRepo")
@@ -69,3 +74,31 @@ def cli(
             handlers=[RichHandler()],
             force=True,
         )
+
+
+def _install_completion_script(shell: str) -> None:
+    """Print the shell completion script for the given shell."""
+    comp_cls = get_completion_class(shell)
+    if comp_cls is None:
+        raise click.UsageError(f"Unknown shell: {shell}")
+    comp = comp_cls(cli, {}, PROG_NAME, COMPLETE_VAR)
+    click.echo(comp.source())
+
+
+@cli.command(
+    "completion",
+    help='Print shell completion script for bash, zsh, or fish. Use: eval "$(mr completion <shell>)"',
+)
+@click.argument(
+    "shell",
+    type=click.Choice(["bash", "zsh", "fish"], case_sensitive=False),
+    required=True,
+)
+def completion(shell: str) -> None:
+    """Output the completion script for the given shell. Add to your rc file or run:
+
+    eval \"$(mr completion bash)\"   # bash
+    eval \"$(mr completion zsh)\"    # zsh
+    eval \"$(mr completion fish)\"   # fish
+    """
+    _install_completion_script(shell)

@@ -220,3 +220,152 @@ def test_view_no_generators(
 
     assert result.exit_code == 0
     assert "No generators found" in result.output
+
+
+def test_export_payload_from_stdin(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """Export with -p - reads JSON payload from stdin."""
+    from build123d import Box
+
+    class MockGen:
+        module = "examples"
+        name = "box_gen"
+
+        def func(self, payload):
+            return type("Obj", (), {"part": Box(1, 1, 1)})()
+
+    mock_registry = type(
+        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+    )()
+
+    monkeypatch.syspath_prepend(fixtures_folder)
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.collect_from_repo",
+        lambda cwd=None: mock_registry,
+    )
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "generators",
+                "export",
+                "-p",
+                "-",
+                "-o",
+                str(tmp_path / "out.step"),
+                "box_gen",
+            ],
+            input="{}",
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    assert (tmp_path / "out.step").exists()
+
+
+def test_export_payload_validation_fails(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """Export with payload that fails generator's param validation must report error."""
+    from build123d import Box
+    from pydantic import BaseModel
+
+    class BoxParams(BaseModel):
+        size: float
+
+    class MockCustomizable:
+        module = "examples"
+        name = "box_gen"
+        parameters_schema = BoxParams
+
+        def func(self, payload):
+            return type("Obj", (), {"part": Box(1, 1, 1)})()
+
+    mock_registry = type(
+        "Registry", (), {"customizables": {"examples": {"box_gen": MockCustomizable()}}}
+    )()
+
+    monkeypatch.syspath_prepend(fixtures_folder)
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.collect_from_repo",
+        lambda cwd=None: mock_registry,
+    )
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "generators",
+                "export",
+                "-p",
+                '{"wrong": "key"}',
+                "-o",
+                str(tmp_path / "out.step"),
+                "box_gen",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    assert "Payload validation failed" in result.output
+    assert not (tmp_path / "out.step").exists()
+
+
+def test_export_payload_validation_passes(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """Export with payload valid for generator's param succeeds and uses validated payload."""
+    from build123d import Box
+    from pydantic import BaseModel
+
+    class BoxParams(BaseModel):
+        size: float = 3.0
+
+    class MockGen:
+        module = "examples"
+        name = "box_gen"
+        parameters_schema = BoxParams
+
+        def func(self, payload):
+            # generator receives validated Pydantic model
+            size = getattr(payload, "size", 1)
+            return type("Obj", (), {"part": Box(size, 1, 1)})()
+
+    mock_registry = type(
+        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+    )()
+
+    monkeypatch.syspath_prepend(fixtures_folder)
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.collect_from_repo",
+        lambda cwd=None: mock_registry,
+    )
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "generators",
+                "export",
+                "-p",
+                '{"size": 2}',
+                "-o",
+                str(tmp_path / "out.step"),
+                "box_gen",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    assert (tmp_path / "out.step").exists()

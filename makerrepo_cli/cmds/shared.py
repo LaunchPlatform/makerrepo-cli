@@ -1,9 +1,11 @@
 """Shared helpers for artifact and generator subcommands."""
 import logging
 import pathlib
+from enum import StrEnum
 from typing import Any
 from typing import Callable
 
+import click
 import questionary
 import rich
 from rich import box
@@ -25,6 +27,61 @@ EXPORT_FORMATS = (*EXPORT_FORMATS_3D, *EXPORT_FORMATS_2D)
 DEFAULT_EXPORT_FORMAT = "step"
 TABLE_HEADER_STYLE = "yellow"
 TABLE_COLUMN_STYLE = "cyan"
+
+
+class Colormap(StrEnum):
+    NONE = "none"
+    TAB10 = "tab10"
+    TAB20 = "tab20"
+    TAB20B = "tab20b"
+    TAB20C = "tab20c"
+    SET1 = "set1"
+    SET2 = "set2"
+    SET3 = "set3"
+    PAIRED = "paired"
+    DARK2 = "dark2"
+    PASTEL1 = "pastel1"
+    PASTEL2 = "pastel2"
+    ACCENT = "accent"
+    GOLDEN_RATIO = "golden_ratio"
+    SEEDED = "seeded"
+    SEGMENTED = "segmented"
+    LISTED = "listed"
+
+
+DEFAULT_COLORMAP = Colormap.NONE
+
+
+def rgba_to_hex(rgba: tuple[float, ...]) -> str:
+    """Convert (r,g,b) or (r,g,b,a) in 0-1 range to #RRGGBB hex string."""
+    r, g, b = int(rgba[0] * 255), int(rgba[1] * 255), int(rgba[2] * 255)
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def get_colormap(colormap: Colormap | str):
+    """Return ocp_vscode ColorMap iterator for the given name, or None for 'none'."""
+    from ocp_vscode import ColorMap
+
+    name = colormap.lower() if isinstance(colormap, str) else colormap.value
+    if name == Colormap.NONE.value:
+        return None
+    method = getattr(ColorMap, name)
+    return method()
+
+
+def apply_colormap_to_payload(payload: Any, colormap: Colormap | str) -> None:
+    """Apply a colormap to each part in the payload (mutates in place)."""
+    cmap = get_colormap(colormap)
+    if cmap is None:
+        return
+    for part in payload.data.shapes.parts:
+        color_tuple = next(cmap)
+        part.color = rgba_to_hex(color_tuple)
+
+
+def colormap_option_help(item_kind: str = "parts") -> str:
+    """Default help text for --colormap option."""
+    return f"Colormap to use for coloring {item_kind} (use 'none' to disable)"
 
 
 def item_display_name(item: Any, default: str = "item") -> str:
@@ -65,6 +122,37 @@ def prompt_item_selection(
         validate=lambda x: (True if len(x) > 0 else f"Select at least one {item_kind}"),
     ).ask()
     return list(selected) if selected else None
+
+
+def _flat_items_from_dict(
+    items_dict: dict[str, dict[str, Any]],
+) -> list[tuple[str, str, Any]]:
+    """Yield (module_name, item_name, item) for every item in items_dict."""
+    result: list[tuple[str, str, Any]] = []
+    for module_name, items in items_dict.items():
+        for item_name, item in items.items():
+            result.append((module_name, item_name, item))
+    return result
+
+
+def prompt_single_item_selection(
+    items_dict: dict[str, dict[str, Any]],
+    item_kind: str,
+) -> Any | None:
+    """Show an interactive select prompt to pick one item. Returns [item] or None if cancelled."""
+    flat = _flat_items_from_dict(items_dict)
+    if not flat:
+        return None
+    if len(flat) == 1:
+        return flat[0][2]
+    choices = [
+        questionary.Choice(title=f"{mod}/{name}", value=item)
+        for mod, name, item in flat
+    ]
+    return questionary.select(
+        f"Select one {item_kind}",
+        choices=choices,
+    ).ask()
 
 
 def resolve_items(

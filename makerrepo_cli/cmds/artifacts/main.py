@@ -1,15 +1,19 @@
 import logging
 import pathlib
-from enum import StrEnum
 
 import click
 
 from ..environment import Environment
 from ..environment import pass_env
 from ..shared import all_items_flat
+from ..shared import apply_colormap_to_payload
+from ..shared import Colormap
+from ..shared import colormap_option_help
+from ..shared import DEFAULT_COLORMAP
 from ..shared import DEFAULT_EXPORT_FORMAT
 from ..shared import EXPORT_FORMATS
 from ..shared import export_shape_to_path
+from ..shared import get_colormap
 from ..shared import get_shape
 from ..shared import item_display_name
 from ..shared import item_safe_filename
@@ -18,7 +22,6 @@ from ..shared import prompt_item_selection
 from ..shared import resolve_items
 from ..shared import run_with_progress
 from .cli import cli
-from .ocp_data_types import OcpPayload
 from .utils import collect_from_repo
 from .utils import convert
 
@@ -57,57 +60,6 @@ def _realize_artifacts(
     )
 
 
-def _rgba_to_hex(rgba: tuple[float, ...]) -> str:
-    """Convert (r,g,b) or (r,g,b,a) in 0-1 range to #RRGGBB hex string."""
-    r, g, b = int(rgba[0] * 255), int(rgba[1] * 255), int(rgba[2] * 255)
-    return f"#{r:02x}{g:02x}{b:02x}"
-
-
-class Colormap(StrEnum):
-    NONE = "none"
-    TAB10 = "tab10"
-    TAB20 = "tab20"
-    TAB20B = "tab20b"
-    TAB20C = "tab20c"
-    SET1 = "set1"
-    SET2 = "set2"
-    SET3 = "set3"
-    PAIRED = "paired"
-    DARK2 = "dark2"
-    PASTEL1 = "pastel1"
-    PASTEL2 = "pastel2"
-    ACCENT = "accent"
-    GOLDEN_RATIO = "golden_ratio"
-    SEEDED = "seeded"
-    SEGMENTED = "segmented"
-    LISTED = "listed"
-
-
-DEFAULT_COLORMAP = Colormap.NONE
-
-
-def _get_colormap(colormap: Colormap | str):
-    from ocp_vscode import ColorMap
-
-    name = colormap.lower() if isinstance(colormap, str) else colormap.value
-    if name == Colormap.NONE.value:
-        return None
-
-    method = getattr(ColorMap, name)
-    return method()
-
-
-def _apply_colormap_to_payload(payload: OcpPayload, colormap: Colormap | str) -> None:
-    """Apply a colormap to each part in the payload (mutates in place)."""
-    cmap = _get_colormap(colormap)
-    if cmap is None:
-        return
-
-    for part in payload.data.shapes.parts:
-        color_tuple = next(cmap)
-        part.color = _rgba_to_hex(color_tuple)
-
-
 @cli.command(name="list", help="List artifacts")
 @pass_env
 def list_artifacts(env: Environment):
@@ -133,7 +85,7 @@ def list_artifacts(env: Environment):
     type=click.Choice([c.value for c in Colormap], case_sensitive=False),
     default=DEFAULT_COLORMAP.value,
     show_default=True,
-    help="Colormap to use for coloring artifacts (use 'none' to disable)",
+    help=colormap_option_help("artifacts"),
 )
 @pass_env
 def view(
@@ -170,7 +122,7 @@ def view(
         "names": [item_safe_filename(a, "artifact") for a in target_artifacts],
     }
     effective_colormap = Colormap(colormap)
-    cmap = _get_colormap(effective_colormap)
+    cmap = get_colormap(effective_colormap)
     if cmap is not None:
         show_kwargs["colors"] = cmap
 
@@ -287,7 +239,7 @@ def export(
     type=click.Choice([c.value for c in Colormap], case_sensitive=False),
     default=DEFAULT_COLORMAP.value,
     show_default=True,
-    help="Colormap to use for coloring artifacts (use 'none' to disable)",
+    help=colormap_option_help("artifacts"),
 )
 @pass_env
 def snapshot(
@@ -328,7 +280,7 @@ def snapshot(
     model_data = convert(realized_artifacts)
 
     effective_colormap = Colormap(colormap)
-    _apply_colormap_to_payload(model_data, effective_colormap)
+    apply_colormap_to_payload(model_data, effective_colormap)
 
     async def capture_snapshot():
         env.logger.info("Starting CAD viewer service...")
