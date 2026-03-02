@@ -28,7 +28,7 @@ def _all_artifacts_flat(registry: Registry) -> list[tuple[str, str, object]]:
 
 
 def _resolve_artifacts(registry: Registry, names: tuple[str, ...]) -> list:
-    """Resolve artifact names to artifact objects. Names can be 'name' or 'module.name'."""
+    """Resolve artifact names to artifact objects. Names can be 'name' or 'module/artifact_name'."""
     flat = list(_all_artifacts_flat(registry))
     if not flat:
         raise ValueError("No artifacts found in repository")
@@ -38,8 +38,8 @@ def _resolve_artifacts(registry: Registry, names: tuple[str, ...]) -> list:
         name_to_artifacts.setdefault(art_name, []).append((mod, art))
     result = []
     for name in names:
-        if "." in name:
-            mod, art_name = name.split(".", 1)
+        if "/" in name:
+            mod, art_name = name.split("/", 1)
             if mod not in by_module_name or art_name not in by_module_name[mod]:
                 raise ValueError(f"Artifact not found: {name}")
             result.append(by_module_name[mod][art_name])
@@ -49,8 +49,8 @@ def _resolve_artifacts(registry: Registry, names: tuple[str, ...]) -> list:
                 raise ValueError(f"Artifact not found: {name}")
             if len(candidates) > 1:
                 raise ValueError(
-                    f"Ambiguous artifact name '{name}'; use module.name: "
-                    + ", ".join(f"{m}.{a.name}" for m, a in candidates)
+                    f"Ambiguous artifact name '{name}'; use module/artifact_name: "
+                    + ", ".join(f"{m}/{a.name}" for m, a in candidates)
                 )
             result.append(candidates[0][1])
     return result

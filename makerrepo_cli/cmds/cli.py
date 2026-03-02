@@ -20,6 +20,14 @@ from .environment import pass_env
     default=lambda: os.environ.get("LOG_LEVEL", "INFO"),
 )
 @click.option(
+    "--build123d-log-level",
+    type=click.Choice(
+        list(map(lambda key: key.value, LOG_LEVEL_MAP.keys())), case_sensitive=False
+    ),
+    default=lambda: os.environ.get("BUILD123D_LOG_LEVEL", "WARNING"),
+    help="Log level for the build123d library logger.",
+)
+@click.option(
     "--log-format",
     type=str,
     default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -35,10 +43,16 @@ from .environment import pass_env
 def cli(
     env: Environment,
     log_level: str,
+    build123d_log_level: str,
     log_format: str,
     disable_rich_log: bool,
 ):
     env.log_level = LogLevel(log_level)
+
+    # Set build123d logger level independently
+    logging.getLogger("build123d").setLevel(
+        LOG_LEVEL_MAP[LogLevel(build123d_log_level)]
+    )
 
     if disable_rich_log:
         logging.basicConfig(
