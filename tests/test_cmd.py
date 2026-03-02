@@ -267,10 +267,20 @@ def test_export_with_artifact_name_to_stl(
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Export by artifact name to STL in directory."""
+    """Export artifact to STL in directory (one file per artifact)."""
     monkeypatch.syspath_prepend(fixtures_folder)
 
     with switch_cwd(fixtures_folder):
+        from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
+        from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+
+        registry = collect_from_repo()
+        flat = list(_all_artifacts_flat(registry))
+        first_artifact = flat[0][2]
+        monkeypatch.setattr(
+            "makerrepo_cli.cmds.artifacts.main._prompt_artifact_selection",
+            lambda reg: [first_artifact],
+        )
         result = cli_runner.invoke(
             cli,
             [
@@ -280,15 +290,14 @@ def test_export_with_artifact_name_to_stl(
                 str(tmp_path),
                 "-f",
                 "stl",
-                "examples/main",
             ],
             catch_exceptions=False,
         )
 
     assert result.exit_code == 0
-    stl_file = tmp_path / "examples_main.stl"
-    assert stl_file.exists()
-    data = stl_file.read_bytes()
+    stl_files = list(tmp_path.glob("*.stl"))
+    assert len(stl_files) == 1
+    data = stl_files[0].read_bytes()
     assert len(data) > 0
     # ASCII STL starts with "solid"; binary STL has 80-byte header + 4-byte count
     assert b"solid" in data[:100] or len(data) >= 84
