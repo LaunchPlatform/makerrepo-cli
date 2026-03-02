@@ -3,9 +3,7 @@ import pathlib
 
 import click
 import rich
-from mr.artifacts.registry import collect
 from mr.artifacts.registry import Registry
-from mr.artifacts.utils import load_module
 from rich import box
 from rich.markup import escape
 from rich.padding import Padding
@@ -14,6 +12,7 @@ from rich.table import Table
 from ..environment import Environment
 from ..environment import pass_env
 from .cli import cli
+from .utils import collect_from_repo
 from .utils import convert
 
 logger = logging.getLogger(__name__)
@@ -21,22 +20,52 @@ TABLE_HEADER_STYLE = "yellow"
 TABLE_COLUMN_STYLE = "cyan"
 
 
-def collect_artifacts(module_spec: str) -> Registry:
-    registry = collect([load_module(module_spec)])
-    if not registry.artifacts:
-        logger.error("No artifacts found")
-    return registry
+def _all_artifacts_flat(registry: Registry) -> list[tuple[str, str, object]]:
+    """Yield (module_name, artifact_name, artifact) for every artifact."""
+    for module_name, artifacts in registry.artifacts.items():
+        for artifact_name, artifact in artifacts.items():
+            yield (module_name, artifact_name, artifact)
+
+
+def _resolve_artifacts(registry: Registry, names: tuple[str, ...]) -> list:
+    """Resolve artifact names to artifact objects. Names can be 'name' or 'module.name'."""
+    flat = list(_all_artifacts_flat(registry))
+    if not flat:
+        raise ValueError("No artifacts found in repository")
+    by_module_name: dict[str, dict] = registry.artifacts
+    name_to_artifacts: dict[str, list[tuple[str, object]]] = {}
+    for mod, art_name, art in flat:
+        name_to_artifacts.setdefault(art_name, []).append((mod, art))
+    result = []
+    for name in names:
+        if "." in name:
+            mod, art_name = name.split(".", 1)
+            if mod not in by_module_name or art_name not in by_module_name[mod]:
+                raise ValueError(f"Artifact not found: {name}")
+            result.append(by_module_name[mod][art_name])
+        else:
+            candidates = name_to_artifacts.get(name, [])
+            if len(candidates) == 0:
+                raise ValueError(f"Artifact not found: {name}")
+            if len(candidates) > 1:
+                raise ValueError(
+                    f"Ambiguous artifact name '{name}'; use module.name: "
+                    + ", ".join(f"{m}.{a.name}" for m, a in candidates)
+                )
+            result.append(candidates[0][1])
+    return result
 
 
 @cli.command(name="list", help="List artifacts")
-@click.argument("MODULE")
 @pass_env
-def list_artifacts(env: Environment, module: str):
-    registry = collect_artifacts(module)
+def list_artifacts(env: Environment):
+    registry = collect_from_repo()
+    if not registry.artifacts:
+        logger.error("No artifacts found")
+        return
 
     env.logger.info(
-        "Listing artifacts for [blue]%s[/]",
-        module,
+        "Listing artifacts from current directory",
         extra={"markup": True, "highlighter": None},
     )
 
@@ -58,29 +87,26 @@ def list_artifacts(env: Environment, module: str):
 
 
 @cli.command(help="View artifact")
-@click.argument("MODULE")
 @click.argument("ARTIFACTS", nargs=-1)
 @click.option(
     "-p", "--port", help="OCP Viewer port to send the model data to", default=3939
 )
 @pass_env
-def view(env: Environment, module: str, artifacts: tuple[str, ...], port: int):
-    registry = collect_artifacts(module)
+def view(env: Environment, artifacts: tuple[str, ...], port: int):
+    registry = collect_from_repo()
+    if not registry.artifacts:
+        logger.error("No artifacts found")
+        return
     if not artifacts:
-        target_artifact = list(list(registry.artifacts.values())[0].values())[0]
+        _, _, first = next(_all_artifacts_flat(registry))
         logger.info(
-            "No artifacts provided, use the first one %s/%s",
-            target_artifact.module,
-            target_artifact.name,
+            "No artifacts provided, using first: %s/%s",
+            first.module,
+            first.name,
         )
-        target_artifacts = [target_artifact]
+        target_artifacts = [first]
     else:
-        if len(registry.artifacts) > 1:
-            raise ValueError("Unexpected more than one modules found")
-        module_artifacts = list(registry.artifacts.values())[0]
-        target_artifacts = [
-            module_artifacts[artifact_name] for artifact_name in artifacts
-        ]
+        target_artifacts = _resolve_artifacts(registry, artifacts)
 
     # TODO: this is going to be a bit slow, provide a progress bar & cache?
     realized_artifacts = [artifact.func() for artifact in target_artifacts]
@@ -92,15 +118,16 @@ def view(env: Environment, module: str, artifacts: tuple[str, ...], port: int):
 
 
 @cli.command(help="Export artifact")
-@click.argument("MODULE")
 @pass_env
-def export(env: Environment, module: str):
-    registry = collect_artifacts(module)
+def export(env: Environment):
+    registry = collect_from_repo()
+    if not registry.artifacts:
+        logger.error("No artifacts found")
+        return
     # TODO:
 
 
 @cli.command(name="snapshot", help="Capture a snapshot from artifacts")
-@click.argument("MODULE")
 @click.argument("ARTIFACTS", nargs=-1)
 @click.option(
     "-o",
@@ -110,30 +137,26 @@ def export(env: Environment, module: str):
     type=click.Path(path_type=pathlib.Path),
 )
 @pass_env
-def snapshot(
-    env: Environment, module: str, artifacts: tuple[str, ...], output: pathlib.Path
-):
+def snapshot(env: Environment, artifacts: tuple[str, ...], output: pathlib.Path):
     """Capture a screenshot from artifacts."""
     import asyncio
 
     from .capture_image import CADViewerService
 
-    registry = collect_artifacts(module)
+    registry = collect_from_repo()
+    if not registry.artifacts:
+        logger.error("No artifacts found")
+        return
     if not artifacts:
-        target_artifact = list(list(registry.artifacts.values())[0].values())[0]
+        _, _, first = next(_all_artifacts_flat(registry))
         env.logger.info(
-            "No artifacts provided, use the first one %s/%s",
-            target_artifact.module,
-            target_artifact.name,
+            "No artifacts provided, using first: %s/%s",
+            first.module,
+            first.name,
         )
-        target_artifacts = [target_artifact]
+        target_artifacts = [first]
     else:
-        if len(registry.artifacts) > 1:
-            raise ValueError("Unexpected more than one modules found")
-        module_artifacts = list(registry.artifacts.values())[0]
-        target_artifacts = [
-            module_artifacts[artifact_name] for artifact_name in artifacts
-        ]
+        target_artifacts = _resolve_artifacts(registry, artifacts)
 
     # Realize artifacts
     realized_artifacts = [artifact.func() for artifact in target_artifacts]

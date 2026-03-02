@@ -113,19 +113,27 @@ async def ws_server(msg_handler: MockMsgHandler, unused_tcp_port: int):
         await server.wait_closed()
 
 
+def test_list(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+):
+    """Test that artifacts list scans the current directory."""
+    monkeypatch.syspath_prepend(fixtures_folder)
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(cli, ["artifacts", "list"], catch_exceptions=False)
+
+    assert result.exit_code == 0
+    assert "main" in result.output
+    assert "Artifacts" in result.output
+
+
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "module",
-    [
-        "examples/main.py",
-        "examples.main",
-    ],
-)
 async def test_view(
     monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
-    module: str,
     unused_tcp_port: int,
     ws_server: websockets.WebSocketServer,
     msg_handler: MockMsgHandler,
@@ -136,7 +144,7 @@ async def test_view(
         with switch_cwd(fixtures_folder):
             result = cli_runner.invoke(
                 cli,
-                ["artifacts", "view", module, "main", "-p", unused_tcp_port],
+                ["artifacts", "view", "-p", unused_tcp_port],
                 catch_exceptions=False,
             )
         assert result.exit_code == 0
@@ -147,18 +155,10 @@ async def test_view(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "module",
-    [
-        "examples/main.py",
-        "examples.main",
-    ],
-)
 async def test_snapshot(
     monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
-    module: str,
     tmp_path: pathlib.Path,
 ):
     monkeypatch.syspath_prepend(fixtures_folder)
@@ -168,7 +168,7 @@ async def test_snapshot(
         with switch_cwd(fixtures_folder):
             result = cli_runner.invoke(
                 cli,
-                ["artifacts", "snapshot", module, "main", "-o", str(output_file)],
+                ["artifacts", "snapshot", "-o", str(output_file)],
                 catch_exceptions=False,
             )
         assert result.exit_code == 0
