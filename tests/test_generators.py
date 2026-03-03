@@ -23,6 +23,70 @@ def test_generators_list(
     assert "No generators found" in result.output or "Generators" in result.output
 
 
+def test_generators_list_json_no_generators(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+):
+    """Test that generators list -o json with no generators outputs []."""
+    import json
+
+    monkeypatch.syspath_prepend(fixtures_folder)
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli, ["generators", "list", "-o", "json"], catch_exceptions=False
+        )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == []
+
+
+def test_generators_list_json_output(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+):
+    """Test that generators list -o json outputs valid JSON with module, name, and extra fields."""
+    import json
+
+    class MockGen:
+        module = "examples"
+        name = "box_gen"
+        sample = "a 1x1 box"
+        filename = "/some/path/main.py"
+        lineno = 42
+
+        def func(self, payload):
+            pass
+
+    mock_registry = type(
+        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+    )()
+
+    monkeypatch.syspath_prepend(fixtures_folder)
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.collect_from_repo",
+        lambda cwd=None: mock_registry,
+    )
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli, ["generators", "list", "-o", "json"], catch_exceptions=False
+        )
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert isinstance(data, list)
+    assert len(data) == 1
+    item = data[0]
+    assert item["module"] == "examples"
+    assert item["name"] == "box_gen"
+    assert item["sample"] == "a 1x1 box"
+    assert item["filename"] == "/some/path/main.py"
+    assert item["lineno"] == 42
+
+
 def test_export_no_generators(
     monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,

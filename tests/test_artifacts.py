@@ -129,6 +129,56 @@ def test_list(
     assert "Artifacts" in result.output
 
 
+def test_list_json_output(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+):
+    """Test that artifacts list -o json outputs valid JSON with module, name, and extra fields."""
+    monkeypatch.syspath_prepend(fixtures_folder)
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli, ["artifacts", "list", "-o", "json"], catch_exceptions=False
+        )
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    for item in data:
+        assert "module" in item
+        assert "name" in item
+        assert isinstance(item["module"], str)
+        assert isinstance(item["name"], str)
+    # At least one artifact has sample (from fixtures examples/main.py)
+    names = [obj["name"] for obj in data]
+    assert "main" in names
+
+
+def test_list_json_empty_output(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+):
+    """Test that artifacts list -o json with no artifacts outputs []."""
+    empty_registry = type("Registry", (), {"artifacts": {}})()
+
+    monkeypatch.syspath_prepend(fixtures_folder)
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.artifacts.main.collect_from_repo",
+        lambda cwd=None: empty_registry,
+    )
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli, ["artifacts", "list", "-o", "json"], catch_exceptions=False
+        )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == []
+
+
 @pytest.mark.asyncio
 async def test_view(
     monkeypatch: MonkeyPatch,
