@@ -1,3 +1,4 @@
+import json
 import logging
 import pathlib
 
@@ -17,6 +18,8 @@ from ..shared import get_colormap
 from ..shared import get_shape
 from ..shared import item_display_name
 from ..shared import item_safe_filename
+from ..shared import item_to_list_payload
+from ..shared import ListOutputFormat
 from ..shared import print_items_table
 from ..shared import prompt_item_selection
 from ..shared import resolve_items
@@ -61,11 +64,31 @@ def _realize_artifacts(
 
 
 @cli.command(name="list", help="List artifacts")
+@click.option(
+    "-o",
+    "--output",
+    "output_format",
+    type=click.Choice([f.value for f in ListOutputFormat], case_sensitive=False),
+    default=None,
+    help="Output format (default: table). Use -o json for JSON to stdout.",
+)
 @pass_env
-def list_artifacts(env: Environment):
+def list_artifacts(env: Environment, output_format: str | None):
     registry = collect_from_repo()
     if not registry.artifacts:
-        logger.error("No artifacts found")
+        if output_format == ListOutputFormat.JSON.value:
+            click.echo("[]")
+        else:
+            logger.error("No artifacts found")
+        return
+
+    if output_format == ListOutputFormat.JSON.value:
+        items = [
+            item_to_list_payload(item, module, name)
+            for module, items_dict in registry.artifacts.items()
+            for name, item in items_dict.items()
+        ]
+        click.echo(json.dumps(items, indent=2))
         return
 
     env.logger.info(

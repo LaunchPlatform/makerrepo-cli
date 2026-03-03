@@ -1,4 +1,5 @@
 """Shared helpers for artifact and generator subcommands."""
+import enum
 import logging
 import pathlib
 from enum import StrEnum
@@ -25,10 +26,20 @@ EXPORT_FORMATS_3D = ("step", "stl", "brep", "gltf", "3mf")
 EXPORT_FORMATS_2D = ("svg", "dxf")
 EXPORT_FORMATS = (*EXPORT_FORMATS_3D, *EXPORT_FORMATS_2D)
 DEFAULT_EXPORT_FORMAT = "step"
+
+
+@enum.unique
+class ListOutputFormat(StrEnum):
+    """Output format for list commands (kubectl-style -o). More formats may be added later."""
+
+    JSON = "json"
+
+
 TABLE_HEADER_STYLE = "yellow"
 TABLE_COLUMN_STYLE = "cyan"
 
 
+@enum.unique
 class Colormap(StrEnum):
     NONE = "none"
     TAB10 = "tab10"
@@ -279,6 +290,37 @@ def item_safe_filename(item: Any, default_name: str = "item") -> str:
     name = getattr(item, "name", default_name)
     safe = f"{mod}_{name}".strip("_") if mod else name
     return safe.replace("/", "_")
+
+
+def item_to_list_payload(item: Any, module: str, name: str) -> dict[str, Any]:
+    """Build a JSON-serializable dict for a registry item (artifact or customizable).
+
+    Includes module, name, and any other attribute on the item that is serializable
+    (e.g. sample, filename, lineno from the mr lib). Skips private names and callables.
+    """
+    payload: dict[str, Any] = {}
+    for attr in dir(item):
+        if attr.startswith("_"):
+            continue
+        try:
+            val = getattr(item, attr)
+        except AttributeError:
+            continue
+        if callable(val):
+            continue
+        if val is None or isinstance(val, (str, int, float, bool)):
+            payload[attr] = val
+        elif isinstance(val, pathlib.Path):
+            payload[attr] = str(val)
+    payload["module"] = module
+    payload["name"] = name
+    # Ensure sample is always present when the item has it (e.g. may be non-scalar)
+    if "sample" not in payload and hasattr(item, "sample"):
+        try:
+            payload["sample"] = str(getattr(item, "sample", ""))
+        except Exception:
+            pass
+    return payload
 
 
 def print_items_table(
