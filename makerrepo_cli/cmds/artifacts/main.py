@@ -24,6 +24,7 @@ from ..shared import print_items_table
 from ..shared import prompt_item_selection
 from ..shared import resolve_items
 from ..shared import run_with_progress
+from ..shared import timed_block
 from .cli import cli
 from .utils import collect_from_repo
 from .utils import convert
@@ -137,7 +138,8 @@ def view(
     else:
         target_artifacts = resolve_items(registry, artifacts, "artifacts", "artifact")
 
-    realized_artifacts = _realize_artifacts(target_artifacts)
+    with timed_block(env.logger):
+        realized_artifacts = _realize_artifacts(target_artifacts)
     from ocp_vscode import show
 
     show_kwargs: dict = {
@@ -205,7 +207,8 @@ def export(
     else:
         target_artifacts = resolve_items(registry, artifacts, "artifacts", "artifact")
 
-    realized = _realize_artifacts(target_artifacts)
+    with timed_block(env.logger):
+        realized = _realize_artifacts(target_artifacts)
     shapes = [get_shape(obj) for obj in realized]
 
     # Infer format from output path if not given
@@ -297,7 +300,8 @@ def snapshot(
     else:
         target_artifacts = resolve_items(registry, artifacts, "artifacts", "artifact")
 
-    realized_artifacts = _realize_artifacts(target_artifacts)
+    with timed_block(env.logger):
+        realized_artifacts = _realize_artifacts(target_artifacts)
 
     # Convert to model data format using convert from utils
     model_data = convert(realized_artifacts)

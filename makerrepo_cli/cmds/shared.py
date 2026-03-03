@@ -2,6 +2,8 @@
 import enum
 import logging
 import pathlib
+import time
+from contextlib import contextmanager
 from enum import StrEnum
 from typing import Any
 from typing import Callable
@@ -61,6 +63,17 @@ class Colormap(StrEnum):
 
 
 DEFAULT_COLORMAP = Colormap.NONE
+
+
+@contextmanager
+def timed_block(log: logging.Logger, message: str = "Model generated"):
+    """Context manager that logs elapsed time when the block exits."""
+    t0 = time.perf_counter()
+    try:
+        yield
+    finally:
+        elapsed = time.perf_counter() - t0
+        log.info("%s in %.2f s", message, elapsed)
 
 
 def rgba_to_hex(rgba: tuple[float, ...]) -> str:

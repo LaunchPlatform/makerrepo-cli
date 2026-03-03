@@ -28,6 +28,7 @@ from ..shared import ListOutputFormat
 from ..shared import print_items_table
 from ..shared import prompt_single_item_selection
 from ..shared import resolve_items
+from ..shared import timed_block
 from .cli import cli
 from .utils import collect_from_repo
 
@@ -202,7 +203,8 @@ def view(
     params = _validate_params(gen, payload_dict)
     if params is None:
         sys.exit(1)
-    realized = _realize_generator(gen, params)
+    with timed_block(env.logger):
+        realized = _realize_generator(gen, params)
     from ocp_vscode import show
 
     show_kwargs: dict = {"port": port}
@@ -288,7 +290,8 @@ def export(
     params = _validate_params(gen, payload_dict)
     if params is None:
         sys.exit(1)
-    realized = _realize_generator(gen, params)
+    with timed_block(env.logger):
+        realized = _realize_generator(gen, params)
     shape = get_shape(realized)
 
     if fmt is None:
@@ -389,7 +392,8 @@ def snapshot(
     params = _validate_params(gen, payload_dict)
     if params is None:
         sys.exit(1)
-    realized = _realize_generator(gen, params)
+    with timed_block(env.logger):
+        realized = _realize_generator(gen, params)
     model_data = convert(realized)
 
     apply_colormap_to_payload(model_data, Colormap(colormap))
