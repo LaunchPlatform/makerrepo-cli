@@ -181,11 +181,11 @@ def view(
         return
 
     if generator is None or generator == "":
-        target = prompt_single_item_selection(customizables, "generator")
-        if target is None:
+        gen = prompt_single_item_selection(customizables, "generator")
+        if gen is None:
             logger.error("No generator selected")
             return
-        gen_arg = item_display_name(target[0], "generator")
+        gen_arg = item_display_name(gen, "generator")
         env.logger.info(
             "Tip: To skip the prompt next time, run: %s generators view -p '%s' %s",
             "mr",
@@ -194,17 +194,15 @@ def view(
         )
     else:
         try:
-            target = resolve_items(
-                registry, (generator,), "customizables", "generator"
-            )[0]
+            gen = resolve_items(registry, (generator,), "customizables", "generator")[0]
         except ValueError as exc:
             env.logger.error("Failed to resolve generator %s: %s", generator, exc)
             exit(-1)
 
-    params = _validate_params(target, payload_dict)
+    params = _validate_params(gen, payload_dict)
     if params is None:
         sys.exit(1)
-    realized = _realize_generator(target, params)
+    realized = _realize_generator(gen, params)
     from ocp_vscode import show
 
     show_kwargs: dict = {"port": port}
@@ -269,11 +267,11 @@ def export(
             return
 
     if generator is None or generator == "":
-        target = prompt_single_item_selection(customizables, "generator")
-        if target is None:
+        gen = prompt_single_item_selection(customizables, "generator")
+        if gen is None:
             logger.error("No generator selected")
             return
-        gen_arg = item_display_name(target[0], "generator")
+        gen_arg = item_display_name(gen, "generator")
         env.logger.info(
             "Tip: To skip the prompt next time, run: %s generators export -p '%s' -o <path> %s",
             "mr",
@@ -282,12 +280,11 @@ def export(
         )
     else:
         try:
-            target = resolve_items(registry, (generator,), "customizables", "generator")
+            gen = resolve_items(registry, (generator,), "customizables", "generator")[0]
         except ValueError as e:
             logger.error("%s", e)
             return
 
-    gen = target[0]
     params = _validate_params(gen, payload_dict)
     if params is None:
         sys.exit(1)
@@ -370,11 +367,11 @@ def snapshot(
         return
 
     if generator is None or generator == "":
-        target = prompt_single_item_selection(customizables, "generator")
-        if target is None:
+        gen = prompt_single_item_selection(customizables, "generator")
+        if gen is None:
             logger.error("No generator selected")
             return
-        gen_arg = item_display_name(target[0], "generator")
+        gen_arg = item_display_name(gen, "generator")
         env.logger.info(
             "Tip: To skip the prompt next time, run: %s generators snapshot -p '%s' -o %s %s",
             "mr",
@@ -384,12 +381,11 @@ def snapshot(
         )
     else:
         try:
-            target = resolve_items(registry, (generator,), "customizables", "generator")
+            gen = resolve_items(registry, (generator,), "customizables", "generator")[0]
         except ValueError as e:
             logger.error("%s", e)
             return
 
-    gen = target[0]
     params = _validate_params(gen, payload_dict)
     if params is None:
         sys.exit(1)

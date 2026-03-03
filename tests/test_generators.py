@@ -286,6 +286,49 @@ def test_view_no_generators(
     assert "No generators found" in result.output
 
 
+def test_view_single_generator_without_argument_uses_default(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+):
+    """View with a single generator in repo must not crash and should auto-select it."""
+    import sys
+    import types
+
+    class MockGen:
+        module = "examples"
+        name = "box_gen"
+
+        def func(self, payload):
+            return object()
+
+    mock_registry = type(
+        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+    )()
+
+    # Stub ocp_vscode so view can import show and ColorMap without requiring the real package.
+    dummy_module = types.SimpleNamespace(
+        ColorMap=type("DummyColorMap", (), {})(),
+        show=lambda *args, **kwargs: None,
+    )
+    monkeypatch.setitem(sys.modules, "ocp_vscode", dummy_module)
+
+    monkeypatch.syspath_prepend(fixtures_folder)
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.collect_from_repo",
+        lambda cwd=None: mock_registry,
+    )
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            ["generators", "view", "-p", "{}"],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+
+
 def test_export_payload_from_stdin(
     monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,
