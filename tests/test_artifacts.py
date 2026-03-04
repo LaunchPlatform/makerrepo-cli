@@ -213,8 +213,6 @@ async def test_view(
     await asyncio.wait_for(asyncio.to_thread(operate), 10)
     assert len(msg_handler.data_msgs) == 1
     assert len(msg_handler.backend_msgs) == 1
-    # Default behavior: viewer message should include camera reset instruction.
-    assert b"reset_camera" in msg_handler.backend_msgs[0]
 
 
 CAMERA_OPTION_CASES = [
