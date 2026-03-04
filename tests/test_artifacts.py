@@ -194,7 +194,7 @@ async def test_view(
     def operate():
         with switch_cwd(fixtures_folder):
             from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-            from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+            from makerrepo_cli.cmds.repo import collect_from_repo
 
             registry = collect_from_repo()
             flat = list(_all_artifacts_flat(registry))
@@ -246,7 +246,7 @@ async def test_view_camera_config(
     def operate():
         with switch_cwd(fixtures_folder):
             from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-            from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+            from makerrepo_cli.cmds.repo import collect_from_repo
 
             registry = collect_from_repo()
             flat = list(_all_artifacts_flat(registry))
@@ -285,7 +285,7 @@ def test_view_camera_invalid(
 
     with switch_cwd(fixtures_folder):
         from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-        from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+        from makerrepo_cli.cmds.repo import collect_from_repo
 
         registry = collect_from_repo()
         flat = list(_all_artifacts_flat(registry))
@@ -342,7 +342,7 @@ async def test_snapshot_camera_option(
     def operate():
         with switch_cwd(fixtures_folder):
             from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-            from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+            from makerrepo_cli.cmds.repo import collect_from_repo
 
             registry = collect_from_repo()
             flat = list(_all_artifacts_flat(registry))
@@ -375,7 +375,7 @@ def test_snapshot_camera_invalid(
 
     with switch_cwd(fixtures_folder):
         from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-        from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+        from makerrepo_cli.cmds.repo import collect_from_repo
 
         registry = collect_from_repo()
         flat = list(_all_artifacts_flat(registry))
@@ -413,7 +413,7 @@ async def test_snapshot(
     def operate():
         with switch_cwd(fixtures_folder):
             from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-            from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+            from makerrepo_cli.cmds.repo import collect_from_repo
 
             registry = collect_from_repo()
             flat = list(_all_artifacts_flat(registry))
@@ -476,7 +476,7 @@ def test_export_single_artifact_step(
 
     with switch_cwd(fixtures_folder):
         from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-        from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+        from makerrepo_cli.cmds.repo import collect_from_repo
 
         registry = collect_from_repo()
         flat = list(_all_artifacts_flat(registry))
@@ -509,7 +509,7 @@ def test_export_with_artifact_name_to_stl(
 
     with switch_cwd(fixtures_folder):
         from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-        from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+        from makerrepo_cli.cmds.repo import collect_from_repo
 
         registry = collect_from_repo()
         flat = list(_all_artifacts_flat(registry))
