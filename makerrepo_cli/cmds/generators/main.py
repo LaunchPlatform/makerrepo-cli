@@ -5,8 +5,8 @@ import sys
 
 import click
 import rich
-from mr.artifacts.data_types import Customizable
-from mr.exceptions import GeneratorValidationError
+from mr import Customizable
+from mr import GeneratorValidationError
 from ocp_vscode import Camera
 from pydantic import BaseModel
 from pydantic import ValidationError

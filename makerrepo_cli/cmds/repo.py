@@ -3,11 +3,11 @@ import logging
 import pathlib
 import sys
 
-from mr.artifacts.registry import collect
-from mr.artifacts.registry import Registry
-from mr.artifacts.utils import find_python_modules
-from mr.artifacts.utils import find_python_packages
-from mr.artifacts.utils import load_module
+from mr.registry import collect
+from mr.registry import Registry
+from mr.utils import find_python_modules
+from mr.utils import find_python_packages
+from mr.utils import load_module
 
 logger = logging.getLogger(__name__)
 
