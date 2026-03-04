@@ -1,4 +1,3 @@
-from ..repo import collect_from_repo
 from .ocp_data_types import OcpData
 from .ocp_data_types import OcpPayload
 

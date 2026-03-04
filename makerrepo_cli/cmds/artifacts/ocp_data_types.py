@@ -58,7 +58,7 @@ class Shapes(BaseModel):
     name: str
     id: str
     normal_len: int
-    bb: BoundingBox
+    bb: BoundingBox | None
 
 
 class OcpData(BaseModel):

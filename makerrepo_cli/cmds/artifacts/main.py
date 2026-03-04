@@ -7,6 +7,7 @@ from ocp_vscode import Camera
 
 from ..environment import Environment
 from ..environment import pass_env
+from ..repo import collect_from_repo
 from ..shared import all_items_flat
 from ..shared import apply_colormap_to_payload
 from ..shared import Colormap
@@ -28,7 +29,6 @@ from ..shared import run_with_progress
 from ..shared import SNAPSHOT_CAMERA_CHOICES
 from ..shared import timed_block
 from .cli import cli
-from .utils import collect_from_repo
 from .utils import convert
 
 logger = logging.getLogger(__name__)
