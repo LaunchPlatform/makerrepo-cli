@@ -212,6 +212,208 @@ async def test_view(
     await asyncio.wait_for(asyncio.to_thread(operate), 10)
     assert len(msg_handler.data_msgs) == 1
     assert len(msg_handler.backend_msgs) == 1
+    # Default behavior: viewer message should include camera reset instruction.
+    assert b"reset_camera" in msg_handler.backend_msgs[0]
+
+
+@pytest.mark.asyncio
+async def test_view_camera_option(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    unused_tcp_port: int,
+    ws_server: websockets.WebSocketServer,
+    msg_handler: MockMsgHandler,
+):
+    """With --camera center we send Camera.CENTER; must not send full reset (RESET)."""
+    monkeypatch.syspath_prepend(fixtures_folder)
+
+    def operate():
+        with switch_cwd(fixtures_folder):
+            from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
+            from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+
+            registry = collect_from_repo()
+            flat = list(_all_artifacts_flat(registry))
+            first_artifact = flat[0][2]
+            monkeypatch.setattr(
+                "makerrepo_cli.cmds.artifacts.main._prompt_artifact_selection",
+                lambda reg: [first_artifact],
+            )
+            result = cli_runner.invoke(
+                cli,
+                ["artifacts", "view", "-p", unused_tcp_port, "--camera", "center"],
+                catch_exceptions=False,
+            )
+        assert result.exit_code == 0
+
+    await asyncio.wait_for(asyncio.to_thread(operate), 10)
+    assert len(msg_handler.data_msgs) == 1
+    assert len(msg_handler.backend_msgs) == 1
+    assert b"RESET" not in msg_handler.backend_msgs[0]
+
+
+@pytest.mark.asyncio
+async def test_view_camera_reset(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    unused_tcp_port: int,
+    ws_server: websockets.WebSocketServer,
+    msg_handler: MockMsgHandler,
+):
+    """View with explicit --camera reset sends reset_camera in backend message."""
+    monkeypatch.syspath_prepend(fixtures_folder)
+
+    def operate():
+        with switch_cwd(fixtures_folder):
+            from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
+            from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+
+            registry = collect_from_repo()
+            flat = list(_all_artifacts_flat(registry))
+            first_artifact = flat[0][2]
+            monkeypatch.setattr(
+                "makerrepo_cli.cmds.artifacts.main._prompt_artifact_selection",
+                lambda reg: [first_artifact],
+            )
+            result = cli_runner.invoke(
+                cli,
+                ["artifacts", "view", "-p", unused_tcp_port, "--camera", "reset"],
+                catch_exceptions=False,
+            )
+        assert result.exit_code == 0
+
+    await asyncio.wait_for(asyncio.to_thread(operate), 10)
+    assert len(msg_handler.data_msgs) == 1
+    assert len(msg_handler.backend_msgs) == 1
+    assert b"reset_camera" in msg_handler.backend_msgs[0]
+
+
+def test_view_camera_invalid(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+):
+    """View with invalid --camera value fails with usage error."""
+    monkeypatch.syspath_prepend(fixtures_folder)
+
+    with switch_cwd(fixtures_folder):
+        from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
+        from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+
+        registry = collect_from_repo()
+        flat = list(_all_artifacts_flat(registry))
+        first_artifact = flat[0][2]
+        monkeypatch.setattr(
+            "makerrepo_cli.cmds.artifacts.main._prompt_artifact_selection",
+            lambda reg: [first_artifact],
+        )
+        result = cli_runner.invoke(
+            cli,
+            ["artifacts", "view", "--camera", "invalidvalue"],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 2
+    assert "Invalid value" in result.output or "invalidvalue" in result.output
+
+
+@pytest.mark.asyncio
+async def test_snapshot_camera_option(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """Snapshot with --camera passes reset_camera in viewer config."""
+    captured_config: dict = {}
+
+    class MockViewer:
+        async def load_cad_data(self, data, config=None):
+            captured_config.clear()
+            if config:
+                captured_config.update(config)
+
+        async def take_screenshot(self):
+            return b"\x89PNG\r\n\x1a\n" + b"\0" * 100
+
+    class MockCADViewerService:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return MockViewer()
+
+        async def __aexit__(self, *args):
+            pass
+
+    monkeypatch.syspath_prepend(fixtures_folder)
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.capture_image.CADViewerService",
+        MockCADViewerService,
+    )
+
+    def operate():
+        with switch_cwd(fixtures_folder):
+            from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
+            from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+
+            registry = collect_from_repo()
+            flat = list(_all_artifacts_flat(registry))
+            first_artifact = flat[0][2]
+            monkeypatch.setattr(
+                "makerrepo_cli.cmds.artifacts.main._prompt_artifact_selection",
+                lambda reg: [first_artifact],
+            )
+            output_file = tmp_path / "snap_camera.png"
+            result = cli_runner.invoke(
+                cli,
+                ["artifacts", "snapshot", "-o", str(output_file), "--camera", "top"],
+                catch_exceptions=False,
+            )
+        assert result.exit_code == 0
+        assert output_file.exists()
+
+    await asyncio.wait_for(asyncio.to_thread(operate), 10)
+    assert captured_config.get("reset_camera") == "top"
+
+
+def test_snapshot_camera_invalid(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """Snapshot with invalid --camera value fails with usage error."""
+    monkeypatch.syspath_prepend(fixtures_folder)
+
+    with switch_cwd(fixtures_folder):
+        from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
+        from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
+
+        registry = collect_from_repo()
+        flat = list(_all_artifacts_flat(registry))
+        first_artifact = flat[0][2]
+        monkeypatch.setattr(
+            "makerrepo_cli.cmds.artifacts.main._prompt_artifact_selection",
+            lambda reg: [first_artifact],
+        )
+        result = cli_runner.invoke(
+            cli,
+            [
+                "artifacts",
+                "snapshot",
+                "-o",
+                str(tmp_path / "out.png"),
+                "--camera",
+                "reset",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 2
+    assert "Invalid value" in result.output or "reset" in result.output
 
 
 @pytest.mark.asyncio

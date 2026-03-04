@@ -3,6 +3,7 @@ import logging
 import pathlib
 
 import click
+from ocp_vscode import Camera
 
 from ..environment import Environment
 from ..environment import pass_env
@@ -24,6 +25,7 @@ from ..shared import print_items_table
 from ..shared import prompt_item_selection
 from ..shared import resolve_items
 from ..shared import run_with_progress
+from ..shared import SNAPSHOT_CAMERA_CHOICES
 from ..shared import timed_block
 from .cli import cli
 from .utils import collect_from_repo
@@ -105,6 +107,13 @@ def list_artifacts(env: Environment, output_format: str | None):
     "-p", "--port", help="OCP Viewer port to send the model data to", default=3939
 )
 @click.option(
+    "--camera",
+    type=click.Choice([c.name.lower() for c in Camera], case_sensitive=False),
+    default="reset",
+    show_default=True,
+    help="Camera preset when loading the model (from CAD viewer Camera enum)",
+)
+@click.option(
     "--colormap",
     type=click.Choice([c.value for c in Colormap], case_sensitive=False),
     default=DEFAULT_COLORMAP.value,
@@ -116,6 +125,7 @@ def view(
     env: Environment,
     artifacts: tuple[str, ...],
     port: int,
+    camera: str,
     colormap: str,
 ):
     registry = collect_from_repo()
@@ -142,9 +152,11 @@ def view(
         realized_artifacts = _realize_artifacts(target_artifacts)
     from ocp_vscode import show
 
+    camera_enum = Camera[camera.upper()]
     show_kwargs: dict = {
         "port": port,
         "names": [item_safe_filename(a, "artifact") for a in target_artifacts],
+        "reset_camera": camera_enum,
     }
     effective_colormap = Colormap(colormap)
     cmap = get_colormap(effective_colormap)
@@ -261,6 +273,13 @@ def export(
     type=click.Path(path_type=pathlib.Path),
 )
 @click.option(
+    "--camera",
+    type=click.Choice(SNAPSHOT_CAMERA_CHOICES, case_sensitive=False),
+    default="iso",
+    show_default=True,
+    help="Camera view preset for the snapshot (view presets only)",
+)
+@click.option(
     "--colormap",
     type=click.Choice([c.value for c in Colormap], case_sensitive=False),
     default=DEFAULT_COLORMAP.value,
@@ -272,12 +291,14 @@ def snapshot(
     env: Environment,
     artifacts: tuple[str, ...],
     output: pathlib.Path,
+    camera: str,
     colormap: str,
 ):
     """Capture a screenshot from artifacts."""
     import asyncio
 
-    from .capture_image import CADViewerService
+    from ..capture_image import CADViewerService
+    from ..capture_image import DEFAULT_CONFIG
 
     registry = collect_from_repo()
     if not registry.artifacts:
@@ -309,11 +330,15 @@ def snapshot(
     effective_colormap = Colormap(colormap)
     apply_colormap_to_payload(model_data, effective_colormap)
 
+    viewer_config = {**DEFAULT_CONFIG, "reset_camera": camera}
+
     async def capture_snapshot():
         env.logger.info("Starting CAD viewer service...")
         async with CADViewerService(logger=env.logger) as viewer:
             env.logger.info("Loading CAD model data...")
-            await viewer.load_cad_data(model_data.model_dump(mode="json"))
+            await viewer.load_cad_data(
+                model_data.model_dump(mode="json"), config=viewer_config
+            )
 
             env.logger.info("Taking screenshot...")
             screenshot_bytes = await viewer.take_screenshot()

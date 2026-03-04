@@ -11,6 +11,7 @@ from typing import Callable
 import click
 import questionary
 import rich
+from ocp_vscode import Camera
 from rich import box
 from rich.markup import escape
 from rich.padding import Padding
@@ -20,6 +21,11 @@ from rich.progress import SpinnerColumn
 from rich.progress import TaskProgressColumn
 from rich.progress import TextColumn
 from rich.table import Table
+
+# Camera presets for snapshot: view presets only (exclude keep/reset)
+SNAPSHOT_CAMERA_CHOICES = [
+    c.name.lower() for c in Camera if c.name.lower() not in ("keep", "reset")
+]
 
 logger = logging.getLogger(__name__)
 

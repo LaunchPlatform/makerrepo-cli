@@ -329,6 +329,215 @@ def test_view_single_generator_without_argument_uses_default(
     assert result.exit_code == 0
 
 
+def test_view_camera_option(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+):
+    """View with --camera iso passes reset_camera to ocp_vscode show."""
+    from ocp_vscode import Camera
+
+    show_kwargs: dict = {}
+
+    def capturing_show(*args, **kwargs):
+        show_kwargs.clear()
+        show_kwargs.update(kwargs)
+
+    monkeypatch.setattr("ocp_vscode.show", capturing_show)
+
+    class MockGen:
+        module = "examples"
+        name = "box_gen"
+
+        def func(self, payload):
+            return object()
+
+    mock_registry = type(
+        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+    )()
+    monkeypatch.syspath_prepend(fixtures_folder)
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.collect_from_repo",
+        lambda cwd=None: mock_registry,
+    )
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            ["generators", "view", "-p", "{}", "--camera", "iso"],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    assert show_kwargs.get("reset_camera") == Camera.ISO
+
+
+def test_view_camera_invalid(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+):
+    """View with invalid --camera value fails with usage error."""
+    import sys
+    import types
+
+    dummy_module = types.SimpleNamespace(
+        ColorMap=type("DummyColorMap", (), {})(),
+        show=lambda *args, **kwargs: None,
+    )
+    monkeypatch.setitem(sys.modules, "ocp_vscode", dummy_module)
+
+    class MockGen:
+        module = "examples"
+        name = "box_gen"
+
+        def func(self, payload):
+            return object()
+
+    mock_registry = type(
+        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+    )()
+    monkeypatch.syspath_prepend(fixtures_folder)
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.collect_from_repo",
+        lambda cwd=None: mock_registry,
+    )
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            ["generators", "view", "-p", "{}", "--camera", "invalidvalue"],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 2
+    assert "Invalid value" in result.output or "invalidvalue" in result.output
+
+
+@pytest.mark.asyncio
+async def test_snapshot_camera_option(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """Generators snapshot with --camera passes reset_camera in viewer config."""
+    import asyncio
+
+    captured_config: dict = {}
+
+    class MockViewer:
+        async def load_cad_data(self, data, config=None):
+            captured_config.clear()
+            if config:
+                captured_config.update(config)
+
+        async def take_screenshot(self):
+            return b"\x89PNG\r\n\x1a\n" + b"\0" * 100
+
+    class MockCADViewerService:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return MockViewer()
+
+        async def __aexit__(self, *args):
+            pass
+
+    from build123d import Box
+
+    class MockGen:
+        module = "examples"
+        name = "box_gen"
+
+        def func(self, payload):
+            return type("Obj", (), {"part": Box(1, 1, 1)})()
+
+    mock_registry = type(
+        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+    )()
+    monkeypatch.syspath_prepend(fixtures_folder)
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.collect_from_repo",
+        lambda cwd=None: mock_registry,
+    )
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.artifacts.capture_image.CADViewerService",
+        MockCADViewerService,
+    )
+
+    def operate():
+        with switch_cwd(fixtures_folder):
+            output_file = tmp_path / "gen_snap_camera.png"
+            result = cli_runner.invoke(
+                cli,
+                [
+                    "generators",
+                    "snapshot",
+                    "-p",
+                    "{}",
+                    "-o",
+                    str(output_file),
+                    "--camera",
+                    "left",
+                    "box_gen",
+                ],
+                catch_exceptions=False,
+            )
+        assert result.exit_code == 0
+        assert output_file.exists()
+
+    await asyncio.wait_for(asyncio.to_thread(operate), 10)
+    assert captured_config.get("reset_camera") == "left"
+
+
+def test_snapshot_camera_invalid(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """Generators snapshot with invalid --camera value (e.g. reset) fails."""
+    from build123d import Box
+
+    class MockGen:
+        module = "examples"
+        name = "box_gen"
+
+        def func(self, payload):
+            return type("Obj", (), {"part": Box(1, 1, 1)})()
+
+    mock_registry = type(
+        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+    )()
+    monkeypatch.syspath_prepend(fixtures_folder)
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.collect_from_repo",
+        lambda cwd=None: mock_registry,
+    )
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "generators",
+                "snapshot",
+                "-p",
+                "{}",
+                "-o",
+                str(tmp_path / "out.png"),
+                "--camera",
+                "reset",
+                "box_gen",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 2
+    assert "Invalid value" in result.output or "reset" in result.output
+
+
 def test_export_payload_from_stdin(
     monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,
