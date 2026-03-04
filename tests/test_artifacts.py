@@ -6,6 +6,7 @@ import pytest
 import pytest_asyncio
 import websockets
 from click.testing import CliRunner
+from ocp_vscode import Camera
 from pytest import MonkeyPatch
 
 from .helper import switch_cwd
@@ -216,16 +217,32 @@ async def test_view(
     assert b"reset_camera" in msg_handler.backend_msgs[0]
 
 
+CAMERA_OPTION_CASES = [
+    (
+        c.name.lower(),
+        "rear" if c.name.lower() == "back" else c.name.lower(),
+    )
+    for c in Camera
+    if c.name.lower() != "keep"
+]
+
+
+@pytest.mark.parametrize(
+    ("camera_option", "expected_reset_camera"),
+    CAMERA_OPTION_CASES,
+)
 @pytest.mark.asyncio
-async def test_view_camera_option(
+async def test_view_camera_config(
     monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
     unused_tcp_port: int,
     ws_server: websockets.WebSocketServer,
     msg_handler: MockMsgHandler,
+    camera_option: str,
+    expected_reset_camera: str,
 ):
-    """With --camera center we send Camera.CENTER; must not send full reset (RESET)."""
+    """View with different --camera options controls reset_camera in viewer config."""
     monkeypatch.syspath_prepend(fixtures_folder)
 
     def operate():
@@ -240,54 +257,24 @@ async def test_view_camera_option(
                 "makerrepo_cli.cmds.artifacts.main._prompt_artifact_selection",
                 lambda reg: [first_artifact],
             )
-            result = cli_runner.invoke(
-                cli,
-                ["artifacts", "view", "-p", unused_tcp_port, "--camera", "center"],
-                catch_exceptions=False,
-            )
+            cli_args = [
+                "artifacts",
+                "view",
+                "-p",
+                unused_tcp_port,
+                "--camera",
+                camera_option,
+            ]
+            result = cli_runner.invoke(cli, cli_args, catch_exceptions=False)
         assert result.exit_code == 0
 
     await asyncio.wait_for(asyncio.to_thread(operate), 10)
+    # One data message containing the model + viewer config
     assert len(msg_handler.data_msgs) == 1
-    assert len(msg_handler.backend_msgs) == 1
-    assert b"RESET" not in msg_handler.backend_msgs[0]
+    payload = json.loads(msg_handler.data_msgs[0])
+    config = payload.get("config", {})
 
-
-@pytest.mark.asyncio
-async def test_view_camera_reset(
-    monkeypatch: MonkeyPatch,
-    cli_runner: CliRunner,
-    fixtures_folder: pathlib.Path,
-    unused_tcp_port: int,
-    ws_server: websockets.WebSocketServer,
-    msg_handler: MockMsgHandler,
-):
-    """View with explicit --camera reset sends reset_camera in backend message."""
-    monkeypatch.syspath_prepend(fixtures_folder)
-
-    def operate():
-        with switch_cwd(fixtures_folder):
-            from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-            from makerrepo_cli.cmds.artifacts.utils import collect_from_repo
-
-            registry = collect_from_repo()
-            flat = list(_all_artifacts_flat(registry))
-            first_artifact = flat[0][2]
-            monkeypatch.setattr(
-                "makerrepo_cli.cmds.artifacts.main._prompt_artifact_selection",
-                lambda reg: [first_artifact],
-            )
-            result = cli_runner.invoke(
-                cli,
-                ["artifacts", "view", "-p", unused_tcp_port, "--camera", "reset"],
-                catch_exceptions=False,
-            )
-        assert result.exit_code == 0
-
-    await asyncio.wait_for(asyncio.to_thread(operate), 10)
-    assert len(msg_handler.data_msgs) == 1
-    assert len(msg_handler.backend_msgs) == 1
-    assert b"reset_camera" in msg_handler.backend_msgs[0]
+    assert config.get("reset_camera") == expected_reset_camera
 
 
 def test_view_camera_invalid(
