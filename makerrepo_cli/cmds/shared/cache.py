@@ -2,6 +2,7 @@ import functools
 import hashlib
 import json
 import logging
+import os
 import pathlib
 import tempfile
 
@@ -11,6 +12,19 @@ from build123d import Part
 from mr.registry import Registry
 
 logger = logging.getLogger(__name__)
+
+# Default cache directory: XDG_CACHE_HOME/makerrepo on Linux, ~/.cache/makerrepo otherwise
+CACHE_DIR_NAME = "makerrepo"
+
+
+def default_cache_dir() -> pathlib.Path:
+    """Return the default cache directory for the CLI (e.g. ~/.cache/makerrepo)."""
+    base = os.environ.get("XDG_CACHE_HOME")
+    if not base:
+        base = pathlib.Path.home() / ".cache"
+    else:
+        base = pathlib.Path(base)
+    return base / CACHE_DIR_NAME
 
 
 def make_cache_key(args: tuple, kwargs: dict) -> str:
