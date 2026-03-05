@@ -1,7 +1,10 @@
+import os
 import pathlib
 
 import click
+import questionary
 import rich
+from ocp_vscode import Camera
 from rich import box
 from rich.padding import Padding
 from rich.table import Table
@@ -10,6 +13,9 @@ from ..environment import Environment
 from ..environment import pass_env
 from ..shared.cache import default_cache_dir
 from .cli import cli
+
+# Cache files we can view in the CAD viewer (BREP only for now)
+VIEWABLE_SUFFIX = ".brep"
 
 
 def _format_size(n: int) -> str:
@@ -25,14 +31,39 @@ def _collect_cache_files(cache_dir: pathlib.Path) -> list[tuple[pathlib.Path, in
     if not cache_dir.is_dir():
         return []
     out: list[tuple[pathlib.Path, int]] = []
-    for p in cache_dir.rglob("*"):
-        if p.is_file():
+    for root, _dirs, names in os.walk(cache_dir):
+        root_path = pathlib.Path(root)
+        for name in names:
+            p = root_path / name
             try:
                 size = p.stat().st_size
             except OSError:
                 size = 0
             out.append((p.relative_to(cache_dir), size))
     return sorted(out)
+
+
+def _prompt_cache_prune_selection(
+    files: list[tuple[pathlib.Path, int]],
+) -> list[pathlib.Path] | None:
+    """Show an interactive checkbox prompt to select cache file(s) to prune. Returns selected paths or None if cancelled."""
+    if not files:
+        return None
+    choices = [
+        questionary.Choice(
+            title=f"{rel_path.as_posix()}  {_format_size(size)}",
+            value=rel_path,
+        )
+        for rel_path, size in files
+    ]
+    selected = questionary.checkbox(
+        "Select cache files to remove (Space to toggle, Enter to confirm)",
+        choices=choices,
+        validate=lambda x: (
+            True if len(x) > 0 else "Select at least one cache file to remove"
+        ),
+    ).ask()
+    return list(selected) if selected else None
 
 
 @cli.command(name="list", help="List cache files and their sizes.")
@@ -63,9 +94,108 @@ def list_caches(env: Environment):
     rich.print(Padding(table, (0, 0, 0, 2)))
 
 
+def _viewable_cache_files(
+    cache_dir: pathlib.Path,
+) -> list[tuple[pathlib.Path, int]]:
+    """Return list of (path, size) for viewable (.brep) files under cache_dir."""
+    all_files = _collect_cache_files(cache_dir)
+    return [(p, s) for p, s in all_files if p.suffix.lower() == VIEWABLE_SUFFIX]
+
+
+def _prompt_cache_view_selection(
+    files: list[tuple[pathlib.Path, int]],
+) -> pathlib.Path | None:
+    """Show an interactive choice to pick one cache file to view. Returns path or None if cancelled."""
+    if not files:
+        return None
+    choices = [
+        questionary.Choice(
+            title=f"{rel_path.as_posix()}  {_format_size(size)}",
+            value=rel_path,
+        )
+        for rel_path, size in files
+    ]
+    selected = questionary.select(
+        "Select a cache file to view",
+        choices=choices,
+    ).ask()
+    return selected
+
+
+@cli.command(
+    name="view",
+    help="Open a cache file in the CAD viewer. With no arguments, prompts to select a file interactively.",
+)
+@click.option(
+    "-p", "--port", help="OCP Viewer port to send the model data to", default=3939
+)
+@click.option(
+    "--camera",
+    type=click.Choice([c.name.lower() for c in Camera], case_sensitive=False),
+    default="reset",
+    show_default=True,
+    help="Camera preset when loading the model (from CAD viewer Camera enum).",
+)
+@click.argument(
+    "path",
+    required=False,
+    type=click.Path(path_type=pathlib.Path),
+)
+@pass_env
+def view_cache(
+    env: Environment,
+    port: int,
+    camera: str,
+    path: pathlib.Path | None,
+):
+    """Load a cache BREP file and show it in the CAD viewer."""
+    from build123d import import_brep
+
+    from ocp_vscode import show
+
+    root = (
+        env.cache_dir if env.cache_dir is not None else default_cache_dir()
+    ).resolve()
+    if not root.is_dir():
+        click.echo(f"Cache directory does not exist: {root}")
+        return
+
+    if path is None:
+        viewable = _viewable_cache_files(root)
+        if not viewable:
+            click.echo(f"No viewable cache files (.brep) in {root}")
+            return
+        rel = _prompt_cache_view_selection(viewable)
+        if rel is None:
+            click.echo("Cancelled.")
+            return
+        env.logger.info(
+            "Tip: To skip the prompt next time, run: mr cache view %s",
+            rel.as_posix(),
+        )
+        path = rel
+
+    target = (root / path).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError:
+        click.echo(f"Path is outside cache directory: {path}")
+        raise SystemExit(2)
+    if not target.is_file():
+        click.echo(f"Not found or not a file: {path}")
+        raise SystemExit(2)
+    if target.suffix.lower() != VIEWABLE_SUFFIX:
+        click.echo(f"Not a viewable cache file (expected {VIEWABLE_SUFFIX}): {path}")
+        raise SystemExit(2)
+
+    part = import_brep(target)
+    camera_enum = Camera[camera.upper()]
+    show(part, port=port, reset_camera=camera_enum)
+
+
 @cli.command(
     name="prune",
-    help="Remove cache files. Use --all to remove everything, or pass paths to remove specific files or folders.",
+    help="Remove cache files. With no arguments, prompts to select files interactively. Use --all to remove everything, or pass paths to remove specific files or folders.",
 )
 @click.option(
     "--all",
@@ -108,11 +238,37 @@ def prune_caches(
                 d.rmdir()
         click.echo(f"Removed {len(to_remove)} cache file(s).")
         return
+    files = _collect_cache_files(root)
     if not paths:
-        click.echo(
-            "Specify --all or one or more paths to remove (e.g. module/file.brep)."
+        if not files:
+            click.echo("No cache files to remove.")
+            return
+        selected = _prompt_cache_prune_selection(files)
+        if selected is None:
+            click.echo("Cancelled.")
+            return
+        path_args = " ".join(p.as_posix() for p in selected)
+        env.logger.info(
+            "Tip: To skip the prompt next time, run: mr cache prune %s",
+            path_args,
         )
-        raise SystemExit(2)
+        paths = selected
+    else:
+        # Paths provided: each must exist in the cache
+        valid_paths: set[pathlib.Path] = set()
+        for rel_path, _ in files:
+            valid_paths.add(rel_path)
+            valid_paths.update(rel_path.parents)
+        for path in paths:
+            target = (root / path).resolve()
+            try:
+                rel = target.relative_to(root)
+            except ValueError:
+                click.echo(f"Path is outside cache directory: {path}")
+                raise SystemExit(2)
+            if rel not in valid_paths:
+                click.echo(f"Not in cache: {rel.as_posix()}")
+                raise SystemExit(2)
     removed = 0
     for rel in paths:
         target = (root / rel).resolve()
