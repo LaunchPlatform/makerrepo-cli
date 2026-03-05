@@ -77,3 +77,18 @@ def test_cache_lookup(cache_folder: pathlib.Path, cache_service: CacheService):
 
     result = cache_service.lookup(module_name, func_name, args, kwargs)
     assert result is not None
+
+
+def test_cache_store(cache_folder: pathlib.Path, cache_service: CacheService):
+    module_name = "mock_mod"
+    func_name = "mock_artifact"
+    args = ("foo",)
+    kwargs = dict(key0="val0")
+    assert cache_service.lookup(module_name, func_name, args, kwargs) is None
+
+    from build123d import Box
+
+    cache_service.store(module_name, func_name, args, kwargs, Box(1, 1, 1))
+
+    result = cache_service.lookup(module_name, func_name, args, kwargs)
+    assert result is not None

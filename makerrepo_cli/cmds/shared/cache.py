@@ -6,7 +6,7 @@ import tempfile
 
 from build123d import export_brep
 from build123d import import_brep
-from build123d import Shape
+from build123d import Part
 
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class CacheService:
         self.cache_folder = cache_folder
         self.suffix = suffix
 
-    def lookup(self, module: str, name: str, args: tuple, kwargs: dict) -> Shape | None:
+    def lookup(self, module: str, name: str, args: tuple, kwargs: dict) -> Part | None:
         module_folder = self.cache_folder / module
         if not module_folder.is_dir():
             return None
@@ -39,7 +39,7 @@ class CacheService:
             return None
         return import_brep(file_path)
 
-    def store(self, module: str, name: str, args: tuple, kwargs: dict, obj: Shape):
+    def store(self, module: str, name: str, args: tuple, kwargs: dict, obj: Part):
         module_folder = self.cache_folder / module
         module_folder.mkdir(parents=True, exist_ok=True)
 
@@ -54,6 +54,6 @@ class CacheService:
                 name,
                 temp_file.name,
             )
-            export_brep(obj.part, temp_file.name)
+            export_brep(obj, temp_file.name)
         pathlib.Path(temp_file.name).rename(file_path)
         logger.info("Output model %s/%s B-REP cache to %s", module, name, file_path)
