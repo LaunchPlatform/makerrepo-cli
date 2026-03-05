@@ -219,9 +219,6 @@ async def test_view_camera_config(
     camera_option: str,
     expected_reset_camera: str,
 ):
-    """View with different --camera options controls reset_camera in viewer config."""
-    monkeypatch.syspath_prepend(fixtures_folder)
-
     def operate():
         with switch_cwd(fixtures_folder):
             from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
@@ -259,9 +256,6 @@ def test_view_camera_invalid(
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
 ):
-    """View with invalid --camera value fails with usage error."""
-    monkeypatch.syspath_prepend(fixtures_folder)
-
     with switch_cwd(fixtures_folder):
         from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
         from makerrepo_cli.cmds.shared.repo import collect_from_repo
@@ -290,7 +284,6 @@ async def test_snapshot_camera_option(
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Snapshot with --camera passes reset_camera in viewer config."""
     captured_config: dict = {}
 
     class MockViewer:
@@ -312,7 +305,6 @@ async def test_snapshot_camera_option(
         async def __aexit__(self, *args):
             pass
 
-    monkeypatch.syspath_prepend(fixtures_folder)
     monkeypatch.setattr(
         "makerrepo_cli.cmds.shared.capture_image.CADViewerService",
         MockCADViewerService,
@@ -349,9 +341,6 @@ def test_snapshot_camera_invalid(
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Snapshot with invalid --camera value fails with usage error."""
-    monkeypatch.syspath_prepend(fixtures_folder)
-
     with switch_cwd(fixtures_folder):
         from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
         from makerrepo_cli.cmds.shared.repo import collect_from_repo
@@ -387,8 +376,6 @@ async def test_snapshot(
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    monkeypatch.syspath_prepend(fixtures_folder)
-
     def operate():
         with switch_cwd(fixtures_folder):
             from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
@@ -427,9 +414,6 @@ def test_export_unknown_extension(
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Export with unknown output extension must error and not create any file."""
-    monkeypatch.syspath_prepend(fixtures_folder)
-
     with switch_cwd(fixtures_folder):
         result = cli_runner.invoke(
             cli,
@@ -450,9 +434,6 @@ def test_export_single_artifact_step(
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Export single artifact to STEP file."""
-    monkeypatch.syspath_prepend(fixtures_folder)
-
     with switch_cwd(fixtures_folder):
         from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
         from makerrepo_cli.cmds.shared.repo import collect_from_repo
@@ -483,9 +464,6 @@ def test_export_with_artifact_name_to_stl(
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Export artifact to STL in directory (one file per artifact)."""
-    monkeypatch.syspath_prepend(fixtures_folder)
-
     with switch_cwd(fixtures_folder):
         from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
         from makerrepo_cli.cmds.shared.repo import collect_from_repo

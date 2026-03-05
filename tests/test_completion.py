@@ -5,7 +5,6 @@ from makerrepo_cli.cmds.main import cli
 
 
 def test_completion_bash(cli_runner: CliRunner) -> None:
-    """Completion command outputs a bash script that defines _mr_completion."""
     result = cli_runner.invoke(cli, ["completion", "bash"], catch_exceptions=False)
     assert result.exit_code == 0
     assert "_mr_completion" in result.output
@@ -13,7 +12,6 @@ def test_completion_bash(cli_runner: CliRunner) -> None:
 
 
 def test_completion_zsh(cli_runner: CliRunner) -> None:
-    """Completion command outputs a zsh script for mr."""
     result = cli_runner.invoke(cli, ["completion", "zsh"], catch_exceptions=False)
     assert result.exit_code == 0
     assert "mr" in result.output
@@ -21,7 +19,6 @@ def test_completion_zsh(cli_runner: CliRunner) -> None:
 
 
 def test_completion_fish(cli_runner: CliRunner) -> None:
-    """Completion command outputs a fish script for mr."""
     result = cli_runner.invoke(cli, ["completion", "fish"], catch_exceptions=False)
     assert result.exit_code == 0
     assert "mr" in result.output

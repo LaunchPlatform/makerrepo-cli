@@ -9,13 +9,9 @@ from makerrepo_cli.cmds.main import cli
 
 
 def test_generators_list(
-    monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
 ):
-    """Test that generators list runs (no @customizable in fixtures -> No generators found)."""
-    monkeypatch.syspath_prepend(fixtures_folder)
-
     with switch_cwd(fixtures_folder):
         result = cli_runner.invoke(cli, ["generators", "list"], catch_exceptions=False)
 
@@ -24,14 +20,10 @@ def test_generators_list(
 
 
 def test_generators_list_json_no_generators(
-    monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
 ):
-    """Test that generators list -o json with no generators outputs []."""
     import json
-
-    monkeypatch.syspath_prepend(fixtures_folder)
 
     with switch_cwd(fixtures_folder):
         result = cli_runner.invoke(
@@ -47,7 +39,6 @@ def test_generators_list_json_output(
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
 ):
-    """Test that generators list -o json outputs valid JSON with module, name, and extra fields."""
     import json
 
     class MockGen:
@@ -64,7 +55,6 @@ def test_generators_list_json_output(
         "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
     )()
 
-    monkeypatch.syspath_prepend(fixtures_folder)
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
         lambda cwd=None: mock_registry,
@@ -88,14 +78,10 @@ def test_generators_list_json_output(
 
 
 def test_export_no_generators(
-    monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Export with no generators in repo must report No generators found."""
-    monkeypatch.syspath_prepend(fixtures_folder)
-
     with switch_cwd(fixtures_folder):
         result = cli_runner.invoke(
             cli,
@@ -114,7 +100,6 @@ def test_export_invalid_payload(
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Export with invalid JSON payload must report Invalid payload."""
     from build123d import Box
 
     # Mock generator: func(payload) -> object with .part (Shape)
@@ -132,7 +117,6 @@ def test_export_invalid_payload(
     def collect_mock(cwd=None):
         return mock_registry
 
-    monkeypatch.syspath_prepend(fixtures_folder)
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
         collect_mock,
@@ -164,7 +148,6 @@ def test_export_unknown_extension(
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Export with unknown output extension must error and not create any file."""
     from build123d import Box
 
     class MockGen:
@@ -178,7 +161,6 @@ def test_export_unknown_extension(
         "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
     )()
 
-    monkeypatch.syspath_prepend(fixtures_folder)
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
         lambda cwd=None: mock_registry,
@@ -210,7 +192,6 @@ def test_export_single_generator_step(
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Export single generator to STEP file."""
     from build123d import Box
 
     class MockGen:
@@ -224,7 +205,6 @@ def test_export_single_generator_step(
         "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
     )()
 
-    monkeypatch.syspath_prepend(fixtures_folder)
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
         lambda cwd=None: mock_registry,
@@ -251,14 +231,10 @@ def test_export_single_generator_step(
 
 
 def test_snapshot_no_generators(
-    monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Snapshot with no generators in repo must report No generators found."""
-    monkeypatch.syspath_prepend(fixtures_folder)
-
     with switch_cwd(fixtures_folder):
         result = cli_runner.invoke(
             cli,
@@ -272,13 +248,9 @@ def test_snapshot_no_generators(
 
 
 def test_view_no_generators(
-    monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
 ):
-    """View with no generators in repo must report No generators found."""
-    monkeypatch.syspath_prepend(fixtures_folder)
-
     with switch_cwd(fixtures_folder):
         result = cli_runner.invoke(cli, ["generators", "view"], catch_exceptions=False)
 
@@ -291,7 +263,6 @@ def test_view_single_generator_without_argument_uses_default(
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
 ):
-    """View with a single generator in repo must not crash and should auto-select it."""
     import sys
     import types
 
@@ -313,7 +284,6 @@ def test_view_single_generator_without_argument_uses_default(
     )
     monkeypatch.setitem(sys.modules, "ocp_vscode", dummy_module)
 
-    monkeypatch.syspath_prepend(fixtures_folder)
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
         lambda cwd=None: mock_registry,
@@ -334,7 +304,6 @@ def test_view_camera_option(
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
 ):
-    """View with --camera iso passes reset_camera to ocp_vscode show."""
     from ocp_vscode import Camera
 
     show_kwargs: dict = {}
@@ -355,7 +324,6 @@ def test_view_camera_option(
     mock_registry = type(
         "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
     )()
-    monkeypatch.syspath_prepend(fixtures_folder)
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
         lambda cwd=None: mock_registry,
@@ -377,7 +345,6 @@ def test_view_camera_invalid(
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
 ):
-    """View with invalid --camera value fails with usage error."""
     import sys
     import types
 
@@ -397,7 +364,6 @@ def test_view_camera_invalid(
     mock_registry = type(
         "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
     )()
-    monkeypatch.syspath_prepend(fixtures_folder)
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
         lambda cwd=None: mock_registry,
@@ -421,7 +387,6 @@ async def test_snapshot_camera_option(
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Generators snapshot with --camera passes reset_camera in viewer config."""
     import asyncio
 
     captured_config: dict = {}
@@ -457,7 +422,6 @@ async def test_snapshot_camera_option(
     mock_registry = type(
         "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
     )()
-    monkeypatch.syspath_prepend(fixtures_folder)
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
         lambda cwd=None: mock_registry,
@@ -498,7 +462,6 @@ def test_snapshot_camera_invalid(
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Generators snapshot with invalid --camera value (e.g. reset) fails."""
     from build123d import Box
 
     class MockGen:
@@ -511,7 +474,6 @@ def test_snapshot_camera_invalid(
     mock_registry = type(
         "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
     )()
-    monkeypatch.syspath_prepend(fixtures_folder)
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
         lambda cwd=None: mock_registry,
@@ -544,7 +506,6 @@ def test_export_payload_from_stdin(
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Export with -p - reads JSON payload from stdin."""
     from build123d import Box
 
     class MockGen:
@@ -558,7 +519,6 @@ def test_export_payload_from_stdin(
         "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
     )()
 
-    monkeypatch.syspath_prepend(fixtures_folder)
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
         lambda cwd=None: mock_registry,
@@ -590,7 +550,6 @@ def test_export_payload_validation_fails(
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Export with payload that fails generator's param validation must report error."""
     from build123d import Box
     from pydantic import BaseModel
 
@@ -609,7 +568,6 @@ def test_export_payload_validation_fails(
         "Registry", (), {"customizables": {"examples": {"box_gen": MockCustomizable()}}}
     )()
 
-    monkeypatch.syspath_prepend(fixtures_folder)
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
         lambda cwd=None: mock_registry,
@@ -641,7 +599,6 @@ def test_export_payload_validation_passes(
     fixtures_folder: pathlib.Path,
     tmp_path: pathlib.Path,
 ):
-    """Export with payload valid for generator's param succeeds and uses validated payload."""
     from build123d import Box
     from pydantic import BaseModel
 
@@ -662,7 +619,6 @@ def test_export_payload_validation_passes(
         "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
     )()
 
-    monkeypatch.syspath_prepend(fixtures_folder)
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
         lambda cwd=None: mock_registry,
