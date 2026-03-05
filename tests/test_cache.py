@@ -3,7 +3,9 @@ import pathlib
 import pytest
 
 from makerrepo_cli.cmds.shared.cache import CacheService
+from makerrepo_cli.cmds.shared.cache import connect_cache_service
 from makerrepo_cli.cmds.shared.cache import make_cache_key
+from makerrepo_cli.cmds.shared.repo import collect_from_repo
 
 
 @pytest.fixture
@@ -92,3 +94,18 @@ def test_cache_store(cache_folder: pathlib.Path, cache_service: CacheService):
 
     result = cache_service.lookup(module_name, func_name, args, kwargs)
     assert result is not None
+
+
+def test_connect_cache_service(
+    fixtures_folder: pathlib.Path,
+    cache_folder: pathlib.Path,
+    cache_service: CacheService,
+):
+    registry = collect_from_repo(fixtures_folder / "cached_examples")
+    connect_cache_service(registry=registry, cache_service=cache_service)
+
+    from .fixtures.cached_examples.main import expensive_func
+
+    result = expensive_func(1, 2, 3)
+    cached_value = expensive_func(1, 2, 3)
+    assert result is cached_value
