@@ -1,6 +1,21 @@
+import pathlib
+
 import pytest
 
+from makerrepo_cli.cmds.shared.cache import CacheService
 from makerrepo_cli.cmds.shared.cache import make_cache_key
+
+
+@pytest.fixture
+def cache_folder(tmp_path: pathlib.Path) -> pathlib.Path:
+    path = tmp_path / "cache"
+    path.mkdir()
+    return path
+
+
+@pytest.fixture
+def cache_service(cache_folder: pathlib.Path) -> CacheService:
+    return CacheService(cache_folder)
 
 
 @pytest.mark.parametrize(
@@ -38,5 +53,27 @@ from makerrepo_cli.cmds.shared.cache import make_cache_key
         ),
     ],
 )
-def test_cache_key(args: tuple, kwargs: dict, expected: str):
+def test_make_cache_key(args: tuple, kwargs: dict, expected: str):
     assert make_cache_key(args, kwargs) == expected
+
+
+def test_cache_lookup(cache_folder: pathlib.Path, cache_service: CacheService):
+    module_name = "mock_mod"
+    func_name = "mock_artifact"
+    args = ("foo",)
+    kwargs = dict(key0="val0")
+    assert cache_service.lookup(module_name, func_name, args, kwargs) is None
+
+    module_folder = cache_folder / module_name
+    module_folder.mkdir()
+    assert cache_service.lookup(module_name, func_name, args, kwargs) is None
+
+    from build123d import Box
+    from build123d import export_brep
+
+    cache_key = make_cache_key(args, kwargs)
+    file_path = module_folder / f"{func_name}_{cache_key}{cache_service.suffix}"
+    export_brep(Box(1, 1, 1), file_path)
+
+    result = cache_service.lookup(module_name, func_name, args, kwargs)
+    assert result is not None
