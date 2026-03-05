@@ -5,6 +5,7 @@ import logging
 import os
 import pathlib
 import tempfile
+from contextlib import contextmanager
 
 from build123d import export_brep
 from build123d import import_brep
@@ -131,3 +132,28 @@ def disconnect_cache_service(registry: Registry):
         for _, cached_obj in cached_objs.items():
             cached_obj.lookup_funcs.clear()
             cached_obj.store_funcs.clear()
+
+
+@contextmanager
+def use_registry_cache(
+    cache_dir: pathlib.Path | None,
+    use_cache: bool,
+    registry: Registry,
+):
+    """If use_cache is True and the registry has caches, connect a CacheService for the duration of the block."""
+    if not use_cache:
+        yield
+        return
+    caches = getattr(registry, "caches", None)
+    if not caches:
+        yield
+        return
+    root = cache_dir if cache_dir is not None else default_cache_dir()
+    root = root.resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    cache_service = CacheService(root)
+    connect_cache_service(registry, cache_service)
+    try:
+        yield
+    finally:
+        disconnect_cache_service(registry)

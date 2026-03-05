@@ -6,6 +6,8 @@ from rich import box
 from rich.padding import Padding
 from rich.table import Table
 
+from ..environment import Environment
+from ..environment import pass_env
 from ..shared.cache import default_cache_dir
 from .cli import cli
 
@@ -34,18 +36,12 @@ def _collect_cache_files(cache_dir: pathlib.Path) -> list[tuple[pathlib.Path, in
 
 
 @cli.command(name="list", help="List cache files and their sizes.")
-@click.option(
-    "-C",
-    "--cache-dir",
-    "cache_dir",
-    type=click.Path(path_type=pathlib.Path, exists=False),
-    default=None,
-    help="Cache directory (default: ~/.cache/makerrepo or XDG_CACHE_HOME/makerrepo).",
-)
-def list_caches(cache_dir: pathlib.Path | None):
+@pass_env
+def list_caches(env: Environment):
     """List all cache files under the cache directory with their sizes."""
-    root = cache_dir if cache_dir is not None else default_cache_dir()
-    root = root.resolve()
+    root = (
+        env.cache_dir if env.cache_dir is not None else default_cache_dir()
+    ).resolve()
     files = _collect_cache_files(root)
     if not files:
         click.echo(f"No cache files in {root}")
@@ -72,14 +68,6 @@ def list_caches(cache_dir: pathlib.Path | None):
     help="Remove cache files. Use --all to remove everything, or pass paths to remove specific files or folders.",
 )
 @click.option(
-    "-C",
-    "--cache-dir",
-    "cache_dir",
-    type=click.Path(path_type=pathlib.Path, exists=False),
-    default=None,
-    help="Cache directory (default: ~/.cache/makerrepo or XDG_CACHE_HOME/makerrepo).",
-)
-@click.option(
     "--all",
     "prune_all",
     is_flag=True,
@@ -90,14 +78,16 @@ def list_caches(cache_dir: pathlib.Path | None):
     nargs=-1,
     type=click.Path(path_type=pathlib.Path),
 )
+@pass_env
 def prune_caches(
-    cache_dir: pathlib.Path | None,
+    env: Environment,
     prune_all: bool,
     paths: tuple[pathlib.Path, ...],
 ):
     """Delete cache files: either all (--all) or the given paths relative to the cache directory."""
-    root = cache_dir if cache_dir is not None else default_cache_dir()
-    root = root.resolve()
+    root = (
+        env.cache_dir if env.cache_dir is not None else default_cache_dir()
+    ).resolve()
     if not root.is_dir():
         click.echo(f"Cache directory does not exist: {root}")
         return

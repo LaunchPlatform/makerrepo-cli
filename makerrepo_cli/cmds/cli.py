@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 
 import click
 from click.shell_completion import get_completion_class
@@ -43,6 +44,20 @@ PROG_NAME = "mr"
     is_flag=True,
     help="disable rich log handler",
 )
+@click.option(
+    "-C",
+    "--cache-dir",
+    "cache_dir",
+    type=click.Path(path_type=pathlib.Path, exists=False),
+    default=None,
+    help="Cache directory for B-REP cache (default: ~/.cache/makerrepo or XDG_CACHE_HOME/makerrepo).",
+)
+@click.option(
+    "--no-cache",
+    "no_cache",
+    is_flag=True,
+    help="Disable B-REP cache for build123d model evaluation.",
+)
 @click.version_option(prog_name="mr", package_name="mr")
 @pass_env
 def cli(
@@ -51,8 +66,12 @@ def cli(
     build123d_log_level: str,
     log_format: str,
     disable_rich_log: bool,
+    cache_dir: pathlib.Path | None,
+    no_cache: bool,
 ):
     env.log_level = LogLevel(log_level)
+    env.cache_dir = cache_dir
+    env.use_cache = not no_cache
 
     # Set build123d logger level independently
     logging.getLogger("build123d").setLevel(

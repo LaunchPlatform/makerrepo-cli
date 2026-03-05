@@ -7,6 +7,7 @@ from ocp_vscode import Camera
 
 from ..environment import Environment
 from ..environment import pass_env
+from ..shared.cache import use_registry_cache
 from ..shared.repo import collect_from_repo
 from ..shared.utils import all_items_flat
 from ..shared.utils import apply_colormap_to_payload
@@ -148,8 +149,9 @@ def view(
     else:
         target_artifacts = resolve_items(registry, artifacts, "artifacts", "artifact")
 
-    with timed_block(env.logger):
-        realized_artifacts = _realize_artifacts(target_artifacts)
+    with use_registry_cache(env.cache_dir, env.use_cache, registry):
+        with timed_block(env.logger):
+            realized_artifacts = _realize_artifacts(target_artifacts)
     from ocp_vscode import show
 
     camera_enum = Camera[camera.upper()]
@@ -219,8 +221,9 @@ def export(
     else:
         target_artifacts = resolve_items(registry, artifacts, "artifacts", "artifact")
 
-    with timed_block(env.logger):
-        realized = _realize_artifacts(target_artifacts)
+    with use_registry_cache(env.cache_dir, env.use_cache, registry):
+        with timed_block(env.logger):
+            realized = _realize_artifacts(target_artifacts)
     shapes = [get_shape(obj) for obj in realized]
 
     # Infer format from output path if not given
@@ -321,8 +324,9 @@ def snapshot(
     else:
         target_artifacts = resolve_items(registry, artifacts, "artifacts", "artifact")
 
-    with timed_block(env.logger):
-        realized_artifacts = _realize_artifacts(target_artifacts)
+    with use_registry_cache(env.cache_dir, env.use_cache, registry):
+        with timed_block(env.logger):
+            realized_artifacts = _realize_artifacts(target_artifacts)
 
     # Convert to model data format using convert from utils
     model_data = convert(realized_artifacts)

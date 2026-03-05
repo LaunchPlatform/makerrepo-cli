@@ -1,6 +1,7 @@
 import dataclasses
 import enum
 import logging
+import pathlib
 
 import click
 
@@ -28,6 +29,8 @@ LOG_LEVEL_MAP = {
 class Environment:
     log_level: LogLevel = LogLevel.INFO
     logger: logging.Logger = logging.getLogger("mr")
+    cache_dir: pathlib.Path | None = None
+    use_cache: bool = True
 
 
 pass_env = click.make_pass_decorator(Environment, ensure=True)

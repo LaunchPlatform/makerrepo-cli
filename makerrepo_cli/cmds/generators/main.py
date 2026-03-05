@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from ..environment import Environment
 from ..environment import pass_env
+from ..shared.cache import use_registry_cache
 from ..shared.repo import collect_from_repo
 from ..shared.utils import apply_colormap_to_payload
 from ..shared.utils import Colormap
@@ -213,8 +214,9 @@ def view(
     params = _validate_params(gen, payload_dict)
     if params is None:
         sys.exit(1)
-    with timed_block(env.logger):
-        realized = _realize_generator(gen, params)
+    with use_registry_cache(env.cache_dir, env.use_cache, registry):
+        with timed_block(env.logger):
+            realized = _realize_generator(gen, params)
     from ocp_vscode import show
 
     camera_enum = Camera[camera.upper()]
@@ -301,8 +303,9 @@ def export(
     params = _validate_params(gen, payload_dict)
     if params is None:
         sys.exit(1)
-    with timed_block(env.logger):
-        realized = _realize_generator(gen, params)
+    with use_registry_cache(env.cache_dir, env.use_cache, registry):
+        with timed_block(env.logger):
+            realized = _realize_generator(gen, params)
     shape = get_shape(realized)
 
     if fmt is None:
@@ -412,8 +415,9 @@ def snapshot(
     params = _validate_params(gen, payload_dict)
     if params is None:
         sys.exit(1)
-    with timed_block(env.logger):
-        realized = _realize_generator(gen, params)
+    with use_registry_cache(env.cache_dir, env.use_cache, registry):
+        with timed_block(env.logger):
+            realized = _realize_generator(gen, params)
     model_data = convert(realized)
 
     apply_colormap_to_payload(model_data, Colormap(colormap))
