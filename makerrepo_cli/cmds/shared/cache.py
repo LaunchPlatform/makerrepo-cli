@@ -98,14 +98,14 @@ class CacheService:
 
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             logger.debug(
-                "Writing model %s/%s B-REP cache to a temp file to %s",
+                "Writing model %s/%s cache to a temp file to %s",
                 module,
                 name,
                 temp_file.name,
             )
             export_brep(obj, temp_file.name)
         pathlib.Path(temp_file.name).rename(file_path)
-        logger.info("Output model %s/%s B-REP cache to %s", module, name, file_path)
+        logger.info("Output model %s/%s cache to %s", module, name, file_path)
         mem_cache_key = (module, name, file_name)
         self.mem_cache[mem_cache_key] = obj
 

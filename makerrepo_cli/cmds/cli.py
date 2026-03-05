@@ -50,13 +50,13 @@ PROG_NAME = "mr"
     "cache_dir",
     type=click.Path(path_type=pathlib.Path, exists=False),
     default=None,
-    help="Cache directory for B-REP cache (default: ~/.cache/makerrepo or XDG_CACHE_HOME/makerrepo).",
+    help="Cache directory (default: ~/.cache/makerrepo or XDG_CACHE_HOME/makerrepo).",
 )
 @click.option(
     "--no-cache",
     "no_cache",
     is_flag=True,
-    help="Disable B-REP cache for build123d model evaluation.",
+    help="Disable cache for model evaluation.",
 )
 @click.version_option(prog_name="mr", package_name="mr")
 @pass_env
