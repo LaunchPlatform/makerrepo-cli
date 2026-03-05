@@ -12,9 +12,9 @@ from pydantic import BaseModel
 from pydantic import ValidationError
 
 from ...core.cache import use_registry_cache
+from ...core.repo.repo import collect_from_repo
 from ..environment import Environment
 from ..environment import pass_env
-from ..shared.repo import collect_from_repo
 from ..shared.utils import apply_colormap_to_payload
 from ..shared.utils import Colormap
 from ..shared.utils import colormap_option_help

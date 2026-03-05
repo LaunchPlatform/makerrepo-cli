@@ -2,10 +2,10 @@ import pathlib
 
 import pytest
 
-from makerrepo_cli.cmds.shared.repo import collect_from_repo
 from makerrepo_cli.core.cache import CacheService
 from makerrepo_cli.core.cache import connect_cache_service
 from makerrepo_cli.core.cache import make_cache_key
+from makerrepo_cli.core.repo.repo import collect_from_repo
 
 
 @pytest.mark.parametrize(
