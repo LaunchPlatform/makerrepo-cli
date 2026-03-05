@@ -104,8 +104,12 @@ def test_connect_cache_service(
     registry = collect_from_repo(fixtures_folder / "cached_examples")
     connect_cache_service(registry=registry, cache_service=cache_service)
 
-    from .fixtures.cached_examples.main import expensive_func
+    expensive_func = __import__(
+        registry.caches["main"]["expensive_func"].func.__module__
+    ).expensive_func
 
-    result = expensive_func(1, 2, 3)
     cached_value = expensive_func(1, 2, 3)
-    assert result is cached_value
+    assert expensive_func(1, 2, 3) is cached_value
+
+    expensive_func(1, 2, 4)
+    assert expensive_func(1, 2, 4) is not cached_value

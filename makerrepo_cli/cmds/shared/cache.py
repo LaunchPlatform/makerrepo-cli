@@ -27,8 +27,22 @@ class CacheService:
     def __init__(self, cache_folder: pathlib.Path, suffix: str = ".brep"):
         self.cache_folder = cache_folder
         self.suffix = suffix
+        self.mem_cache = {}
 
     def lookup(self, module: str, name: str, args: tuple, kwargs: dict) -> Part | None:
+        cache_key = make_cache_key(args, kwargs)
+        file_name = f"{name}_{cache_key}{self.suffix}"
+
+        mem_cache_key = (module, name, file_name)
+        if mem_cache_key in self.mem_cache:
+            logger.info(
+                "Cache found in memory, returning cache for %s/%s %s",
+                module,
+                name,
+                file_name,
+            )
+            return self.mem_cache[mem_cache_key]
+
         module_folder = self.cache_folder / module
         if not module_folder.is_dir():
             logger.debug(
@@ -39,8 +53,6 @@ class CacheService:
             )
             return None
 
-        cache_key = make_cache_key(args, kwargs)
-        file_name = f"{name}_{cache_key}{self.suffix}"
         file_path = module_folder / file_name
         if not file_path.is_file():
             logger.debug(
@@ -58,7 +70,9 @@ class CacheService:
             module,
             name,
         )
-        return import_brep(file_path)
+        result = import_brep(file_path)
+        self.mem_cache[mem_cache_key] = result
+        return result
 
     def store(self, module: str, name: str, args: tuple, kwargs: dict, obj: Part):
         module_folder = self.cache_folder / module

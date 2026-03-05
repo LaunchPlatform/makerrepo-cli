@@ -855,7 +855,7 @@ wheels = [
 
 [[package]]
 name = "makerrepo"
-version = "0.4.1"
+version = "0.4.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "build123d" },
@@ -863,9 +863,9 @@ dependencies = [
     { name = "pyyaml" },
     { name = "venusian" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d4/a4/878f861acf31f886d694d6bbacc398b691689c6cdc37a0a52047db83d140/makerrepo-0.4.1.tar.gz", hash = "sha256:7d2c45f1ff98495e6b663974f31705245d0037f22212f14ec7b55ffff2823c8d", size = 11931, upload-time = "2026-03-05T02:10:17.724Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4d/8a/44cf868c09322645943e15e0922bcbfa8eaed1714595873e4733c995a9e6/makerrepo-0.4.3.tar.gz", hash = "sha256:8bbfd369b77eba46782e2bed207507f852bb0d577aab003eff05139c59facb48", size = 11978, upload-time = "2026-03-05T20:12:50.931Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/25/37/f9729ecf55378920d6ed71f92e3fffc722396425a562e441aaa3ef16704b/makerrepo-0.4.1-py3-none-any.whl", hash = "sha256:cccecb2321b565a28859a50d7d70a1ef286a9d51269ba50edd14f10e3b40b141", size = 8515, upload-time = "2026-03-05T02:10:16.985Z" },
+    { url = "https://files.pythonhosted.org/packages/99/b6/35b7256446212ebd209524ac30dda755cc0173a34fc68910aa853f59a482/makerrepo-0.4.3-py3-none-any.whl", hash = "sha256:1494c6c73b04a41e7b77314e0394dfcea7c07e6ddf3ca4900b13983130062308", size = 8463, upload-time = "2026-03-05T20:12:51.612Z" },
 ]
 
 [[package]]
@@ -891,7 +891,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.3.1" },
-    { name = "makerrepo", specifier = ">=0.4.1" },
+    { name = "makerrepo", specifier = ">=0.4.3" },
     { name = "ocp-vscode", specifier = ">=3.0.1" },
     { name = "playwright", specifier = ">=1.58.0" },
     { name = "questionary", specifier = ">=2.1.0" },
