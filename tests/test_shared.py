@@ -1,8 +1,8 @@
 """Tests for makerrepo_cli.cmds.shared (list output format, item_to_list_payload)."""
 import pathlib
 
-from makerrepo_cli.cmds.shared import item_to_list_payload
-from makerrepo_cli.cmds.shared import ListOutputFormat
+from makerrepo_cli.cmds.shared.utils import item_to_list_payload
+from makerrepo_cli.cmds.shared.utils import ListOutputFormat
 
 
 class TestListOutputFormat:

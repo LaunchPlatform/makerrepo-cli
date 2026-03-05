@@ -13,26 +13,26 @@ from pydantic import ValidationError
 
 from ..environment import Environment
 from ..environment import pass_env
-from ..shared import apply_colormap_to_payload
-from ..shared import Colormap
-from ..shared import colormap_option_help
-from ..shared import DEFAULT_COLORMAP
-from ..shared import DEFAULT_EXPORT_FORMAT
-from ..shared import EXPORT_FORMATS
-from ..shared import export_shape_to_path
-from ..shared import get_colormap
-from ..shared import get_shape
-from ..shared import item_display_name
-from ..shared import item_safe_filename
-from ..shared import item_to_list_payload
-from ..shared import ListOutputFormat
-from ..shared import print_items_table
-from ..shared import prompt_single_item_selection
-from ..shared import resolve_items
-from ..shared import SNAPSHOT_CAMERA_CHOICES
-from ..shared import timed_block
+from ..shared.repo import collect_from_repo
+from ..shared.utils import apply_colormap_to_payload
+from ..shared.utils import Colormap
+from ..shared.utils import colormap_option_help
+from ..shared.utils import DEFAULT_COLORMAP
+from ..shared.utils import DEFAULT_EXPORT_FORMAT
+from ..shared.utils import EXPORT_FORMATS
+from ..shared.utils import export_shape_to_path
+from ..shared.utils import get_colormap
+from ..shared.utils import get_shape
+from ..shared.utils import item_display_name
+from ..shared.utils import item_safe_filename
+from ..shared.utils import item_to_list_payload
+from ..shared.utils import ListOutputFormat
+from ..shared.utils import print_items_table
+from ..shared.utils import prompt_single_item_selection
+from ..shared.utils import resolve_items
+from ..shared.utils import SNAPSHOT_CAMERA_CHOICES
+from ..shared.utils import timed_block
 from .cli import cli
-from .utils import collect_from_repo
 
 logger = logging.getLogger(__name__)
 
@@ -374,9 +374,9 @@ def snapshot(
 ):
     import asyncio
 
-    from ..capture_image import CADViewerService
-    from ..capture_image import DEFAULT_CONFIG
-    from ..artifacts.utils import convert
+    from ..shared.capture_image import CADViewerService
+    from ..shared.capture_image import DEFAULT_CONFIG
+    from ..shared.utils import convert
 
     registry = collect_from_repo()
     customizables = getattr(registry, "customizables", None)

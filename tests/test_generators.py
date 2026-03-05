@@ -463,7 +463,7 @@ async def test_snapshot_camera_option(
         lambda cwd=None: mock_registry,
     )
     monkeypatch.setattr(
-        "makerrepo_cli.cmds.capture_image.CADViewerService",
+        "makerrepo_cli.cmds.shared.capture_image.CADViewerService",
         MockCADViewerService,
     )
 

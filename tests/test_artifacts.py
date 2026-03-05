@@ -115,13 +115,9 @@ async def ws_server(msg_handler: MockMsgHandler, unused_tcp_port: int):
 
 
 def test_list(
-    monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
 ):
-    """Test that artifacts list scans the current directory."""
-    monkeypatch.syspath_prepend(fixtures_folder)
-
     with switch_cwd(fixtures_folder):
         result = cli_runner.invoke(cli, ["artifacts", "list"], catch_exceptions=False)
 
@@ -131,13 +127,9 @@ def test_list(
 
 
 def test_list_json_output(
-    monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
 ):
-    """Test that artifacts list -o json outputs valid JSON with module, name, and extra fields."""
-    monkeypatch.syspath_prepend(fixtures_folder)
-
     with switch_cwd(fixtures_folder):
         result = cli_runner.invoke(
             cli, ["artifacts", "list", "-o", "json"], catch_exceptions=False
@@ -158,24 +150,13 @@ def test_list_json_output(
 
 
 def test_list_json_empty_output(
-    monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,
-    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
 ):
-    """Test that artifacts list -o json with no artifacts outputs []."""
-    empty_registry = type("Registry", (), {"artifacts": {}})()
-
-    monkeypatch.syspath_prepend(fixtures_folder)
-    monkeypatch.setattr(
-        "makerrepo_cli.cmds.artifacts.main.collect_from_repo",
-        lambda cwd=None: empty_registry,
-    )
-
-    with switch_cwd(fixtures_folder):
+    with switch_cwd(tmp_path):
         result = cli_runner.invoke(
             cli, ["artifacts", "list", "-o", "json"], catch_exceptions=False
         )
-
     assert result.exit_code == 0
     assert json.loads(result.output) == []
 
@@ -189,12 +170,10 @@ async def test_view(
     ws_server: websockets.WebSocketServer,
     msg_handler: MockMsgHandler,
 ):
-    monkeypatch.syspath_prepend(fixtures_folder)
-
     def operate():
         with switch_cwd(fixtures_folder):
             from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-            from makerrepo_cli.cmds.repo import collect_from_repo
+            from makerrepo_cli.cmds.shared.repo import collect_from_repo
 
             registry = collect_from_repo()
             flat = list(_all_artifacts_flat(registry))
@@ -246,7 +225,7 @@ async def test_view_camera_config(
     def operate():
         with switch_cwd(fixtures_folder):
             from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-            from makerrepo_cli.cmds.repo import collect_from_repo
+            from makerrepo_cli.cmds.shared.repo import collect_from_repo
 
             registry = collect_from_repo()
             flat = list(_all_artifacts_flat(registry))
@@ -285,7 +264,7 @@ def test_view_camera_invalid(
 
     with switch_cwd(fixtures_folder):
         from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-        from makerrepo_cli.cmds.repo import collect_from_repo
+        from makerrepo_cli.cmds.shared.repo import collect_from_repo
 
         registry = collect_from_repo()
         flat = list(_all_artifacts_flat(registry))
@@ -335,14 +314,14 @@ async def test_snapshot_camera_option(
 
     monkeypatch.syspath_prepend(fixtures_folder)
     monkeypatch.setattr(
-        "makerrepo_cli.cmds.capture_image.CADViewerService",
+        "makerrepo_cli.cmds.shared.capture_image.CADViewerService",
         MockCADViewerService,
     )
 
     def operate():
         with switch_cwd(fixtures_folder):
             from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-            from makerrepo_cli.cmds.repo import collect_from_repo
+            from makerrepo_cli.cmds.shared.repo import collect_from_repo
 
             registry = collect_from_repo()
             flat = list(_all_artifacts_flat(registry))
@@ -375,7 +354,7 @@ def test_snapshot_camera_invalid(
 
     with switch_cwd(fixtures_folder):
         from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-        from makerrepo_cli.cmds.repo import collect_from_repo
+        from makerrepo_cli.cmds.shared.repo import collect_from_repo
 
         registry = collect_from_repo()
         flat = list(_all_artifacts_flat(registry))
@@ -413,7 +392,7 @@ async def test_snapshot(
     def operate():
         with switch_cwd(fixtures_folder):
             from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-            from makerrepo_cli.cmds.repo import collect_from_repo
+            from makerrepo_cli.cmds.shared.repo import collect_from_repo
 
             registry = collect_from_repo()
             flat = list(_all_artifacts_flat(registry))
@@ -476,7 +455,7 @@ def test_export_single_artifact_step(
 
     with switch_cwd(fixtures_folder):
         from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-        from makerrepo_cli.cmds.repo import collect_from_repo
+        from makerrepo_cli.cmds.shared.repo import collect_from_repo
 
         registry = collect_from_repo()
         flat = list(_all_artifacts_flat(registry))
@@ -509,7 +488,7 @@ def test_export_with_artifact_name_to_stl(
 
     with switch_cwd(fixtures_folder):
         from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
-        from makerrepo_cli.cmds.repo import collect_from_repo
+        from makerrepo_cli.cmds.shared.repo import collect_from_repo
 
         registry = collect_from_repo()
         flat = list(_all_artifacts_flat(registry))
