@@ -11,9 +11,9 @@ from ocp_vscode import Camera
 from pydantic import BaseModel
 from pydantic import ValidationError
 
+from ...core.cache import use_registry_cache
 from ..environment import Environment
 from ..environment import pass_env
-from ..shared.cache import use_registry_cache
 from ..shared.repo import collect_from_repo
 from ..shared.utils import apply_colormap_to_payload
 from ..shared.utils import Colormap
@@ -381,8 +381,8 @@ def snapshot(
 ):
     import asyncio
 
-    from ..shared.capture_image import CADViewerService
-    from ..shared.capture_image import DEFAULT_CONFIG
+    from ...core.capture_image import CADViewerService
+    from ...core.capture_image import DEFAULT_CONFIG
     from ..shared.utils import convert
 
     registry = collect_from_repo()

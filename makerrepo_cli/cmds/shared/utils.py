@@ -21,8 +21,8 @@ from rich.progress import TaskProgressColumn
 from rich.progress import TextColumn
 from rich.table import Table
 
-from .ocp_data_types import OcpData
-from .ocp_data_types import OcpPayload
+from ...core.ocp_data_types import OcpData
+from ...core.ocp_data_types import OcpPayload
 
 
 # Camera presets for snapshot: view presets only (exclude keep/reset)

@@ -5,9 +5,9 @@ import pathlib
 import click
 from ocp_vscode import Camera
 
+from ...core.cache import use_registry_cache
 from ..environment import Environment
 from ..environment import pass_env
-from ..shared.cache import use_registry_cache
 from ..shared.repo import collect_from_repo
 from ..shared.utils import all_items_flat
 from ..shared.utils import apply_colormap_to_payload
@@ -304,8 +304,8 @@ def snapshot(
     """Capture a screenshot from artifacts."""
     import asyncio
 
-    from ..shared.capture_image import CADViewerService
-    from ..shared.capture_image import DEFAULT_CONFIG
+    from ...core.capture_image import CADViewerService
+    from ...core.capture_image import DEFAULT_CONFIG
 
     registry = collect_from_repo()
     if not registry.artifacts:

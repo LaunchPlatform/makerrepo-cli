@@ -11,8 +11,8 @@ from playwright.async_api import Browser
 from playwright.async_api import BrowserContext
 from playwright.async_api import Page
 
-
-DATA_FOLDER = pathlib.Path(__file__).parent.parent.parent / "data"
+# Data folder: makerrepo_cli/data (viewer HTML/assets)
+DATA_FOLDER = pathlib.Path(__file__).parent.parent / "data"
 DEFAULT_CONFIG = {
     # Display options
     "cadWidth": 1200,

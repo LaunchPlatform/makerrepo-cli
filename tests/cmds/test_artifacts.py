@@ -9,7 +9,7 @@ from click.testing import CliRunner
 from ocp_vscode import Camera
 from pytest import MonkeyPatch
 
-from .helper import switch_cwd
+from ..helper import switch_cwd
 from makerrepo_cli.cmds.main import cli
 
 
@@ -306,7 +306,7 @@ async def test_snapshot_camera_option(
             pass
 
     monkeypatch.setattr(
-        "makerrepo_cli.cmds.shared.capture_image.CADViewerService",
+        "makerrepo_cli.core.capture_image.CADViewerService",
         MockCADViewerService,
     )
 

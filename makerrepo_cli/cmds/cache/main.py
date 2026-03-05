@@ -9,9 +9,9 @@ from rich import box
 from rich.padding import Padding
 from rich.table import Table
 
+from ...core.cache import default_cache_dir
 from ..environment import Environment
 from ..environment import pass_env
-from ..shared.cache import default_cache_dir
 from .cli import cli
 
 # Cache files we can view in the CAD viewer (BREP only for now)
