@@ -66,7 +66,6 @@ class CacheService:
         logger.info(
             "Cache file found at %s, returning cache for %s/%s",
             file_path,
-            module_folder,
             module,
             name,
         )
