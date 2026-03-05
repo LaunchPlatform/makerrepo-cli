@@ -36,10 +36,10 @@ class CacheService:
         mem_cache_key = (module, name, file_name)
         if mem_cache_key in self.mem_cache:
             logger.info(
-                "Cache found in memory, returning cache for %s/%s %s",
+                "Cache %s found in memory, returning cache for %s/%s",
+                file_name,
                 module,
                 name,
-                file_name,
             )
             return self.mem_cache[mem_cache_key]
 
@@ -92,6 +92,8 @@ class CacheService:
             export_brep(obj, temp_file.name)
         pathlib.Path(temp_file.name).rename(file_path)
         logger.info("Output model %s/%s B-REP cache to %s", module, name, file_path)
+        mem_cache_key = (module, name, file_name)
+        self.mem_cache[mem_cache_key] = obj
 
 
 def connect_cache_service(registry: Registry, cache_service: CacheService):
