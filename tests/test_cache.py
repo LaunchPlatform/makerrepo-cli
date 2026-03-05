@@ -1,6 +1,6 @@
 import pytest
 
-from makerrepo_cli.cmds.shared.cache import cache_key
+from makerrepo_cli.cmds.shared.cache import make_cache_key
 
 
 @pytest.mark.parametrize(
@@ -39,4 +39,4 @@ from makerrepo_cli.cmds.shared.cache import cache_key
     ],
 )
 def test_cache_key(args: tuple, kwargs: dict, expected: str):
-    assert cache_key(args, kwargs) == expected
+    assert make_cache_key(args, kwargs) == expected
