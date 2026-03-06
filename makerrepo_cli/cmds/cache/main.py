@@ -168,6 +168,7 @@ def list_caches(env: Environment):
     )
     table.add_column("Function", style="cyan")
     table.add_column("Description")
+    table.add_column("Total size", justify="right", style="green")
     table.add_column("Size", justify="right", style="green")
     table.add_column("Cache files", no_wrap=False, overflow="fold", min_width=45)
     total_size = 0
@@ -176,19 +177,24 @@ def list_caches(env: Environment):
             short_desc = cached_obj.short_desc or ""
             key = (cached_obj.module, cached_obj.name)
             matched = module_name_files.get(key, [])
-            total_size += sum(s for _, s in matched)
+            func_total = sum(s for _, s in matched)
+            total_size += func_total
             func_cell = f"{escape(module)}/{escape(name)}"
-            size_str = _format_size(sum(s for _, s in matched))
+            total_str = _format_size(func_total)
             if matched:
+                sorted_matched = sorted(matched)
                 files_cell = "\n".join(
-                    rel_path.as_posix() for rel_path, _ in sorted(matched)
+                    rel_path.as_posix() for rel_path, _ in sorted_matched
                 )
+                size_cell = "\n".join(_format_size(s) for _, s in sorted_matched)
             else:
                 files_cell = "(no cache files)"
+                size_cell = "—"
             table.add_row(
                 func_cell,
                 short_desc or "—",
-                size_str,
+                total_str,
+                size_cell,
                 files_cell,
             )
     rich.print(Padding(table, (0, 0, 0, 2)))
