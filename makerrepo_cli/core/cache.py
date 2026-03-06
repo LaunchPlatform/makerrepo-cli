@@ -144,7 +144,7 @@ def use_registry_cache(
     if not use_cache:
         yield
         return
-    caches = getattr(registry, "caches", None)
+    caches = registry.caches
     if not caches:
         yield
         return
