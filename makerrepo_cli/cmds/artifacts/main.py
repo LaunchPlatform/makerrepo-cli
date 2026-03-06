@@ -154,9 +154,9 @@ def view(
         use_registry_cache(
             registry,
             use_cache=env.use_cache,
-            cache_service=make_default_cache_service(env.cache_dir)
-            if env.use_cache
-            else None,
+            cache_service=(
+                make_default_cache_service(env.cache_dir) if env.use_cache else None
+            ),
         ),
         timed_block(env.logger),
     ):
