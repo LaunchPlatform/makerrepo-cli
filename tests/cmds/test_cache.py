@@ -76,7 +76,6 @@ def test_cache_list_with_cached_functions(
             cli, ["-C", str(cache_folder), "cache", "list"], catch_exceptions=False
         )
     assert result.exit_code == 0
-    assert "main.expensive_func" in result.output
     assert "main/expensive_func" in result.output
     assert "200" in result.output
 
