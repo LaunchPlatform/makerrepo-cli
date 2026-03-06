@@ -52,7 +52,9 @@ def test_generators_list_json_output(
             pass
 
     mock_registry = type(
-        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+        "Registry",
+        (),
+        {"customizables": {"examples": {"box_gen": MockGen()}}, "caches": {}},
     )()
 
     monkeypatch.setattr(
@@ -111,7 +113,9 @@ def test_export_invalid_payload(
             return type("Obj", (), {"part": Box(1, 1, 1)})()
 
     mock_registry = type(
-        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+        "Registry",
+        (),
+        {"customizables": {"examples": {"box_gen": MockGen()}}, "caches": {}},
     )()
 
     def collect_mock(cwd=None):
@@ -158,7 +162,9 @@ def test_export_unknown_extension(
             return type("Obj", (), {"part": Box(1, 1, 1)})()
 
     mock_registry = type(
-        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+        "Registry",
+        (),
+        {"customizables": {"examples": {"box_gen": MockGen()}}, "caches": {}},
     )()
 
     monkeypatch.setattr(
@@ -202,7 +208,9 @@ def test_export_single_generator_step(
             return type("Obj", (), {"part": Box(5, 5, 5)})()
 
     mock_registry = type(
-        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+        "Registry",
+        (),
+        {"customizables": {"examples": {"box_gen": MockGen()}}, "caches": {}},
     )()
 
     monkeypatch.setattr(
@@ -274,7 +282,9 @@ def test_view_single_generator_without_argument_uses_default(
             return object()
 
     mock_registry = type(
-        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+        "Registry",
+        (),
+        {"customizables": {"examples": {"box_gen": MockGen()}}, "caches": {}},
     )()
 
     # Stub ocp_vscode so view can import show and ColorMap without requiring the real package.
@@ -322,7 +332,9 @@ def test_view_camera_option(
             return object()
 
     mock_registry = type(
-        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+        "Registry",
+        (),
+        {"customizables": {"examples": {"box_gen": MockGen()}}, "caches": {}},
     )()
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
@@ -362,7 +374,9 @@ def test_view_camera_invalid(
             return object()
 
     mock_registry = type(
-        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+        "Registry",
+        (),
+        {"customizables": {"examples": {"box_gen": MockGen()}}, "caches": {}},
     )()
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
@@ -420,7 +434,9 @@ async def test_snapshot_camera_option(
             return type("Obj", (), {"part": Box(1, 1, 1)})()
 
     mock_registry = type(
-        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+        "Registry",
+        (),
+        {"customizables": {"examples": {"box_gen": MockGen()}}, "caches": {}},
     )()
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
@@ -472,7 +488,9 @@ def test_snapshot_camera_invalid(
             return type("Obj", (), {"part": Box(1, 1, 1)})()
 
     mock_registry = type(
-        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+        "Registry",
+        (),
+        {"customizables": {"examples": {"box_gen": MockGen()}}, "caches": {}},
     )()
     monkeypatch.setattr(
         "makerrepo_cli.cmds.generators.main.collect_from_repo",
@@ -516,7 +534,9 @@ def test_export_payload_from_stdin(
             return type("Obj", (), {"part": Box(1, 1, 1)})()
 
     mock_registry = type(
-        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+        "Registry",
+        (),
+        {"customizables": {"examples": {"box_gen": MockGen()}}, "caches": {}},
     )()
 
     monkeypatch.setattr(
@@ -565,7 +585,9 @@ def test_export_payload_validation_fails(
             return type("Obj", (), {"part": Box(1, 1, 1)})()
 
     mock_registry = type(
-        "Registry", (), {"customizables": {"examples": {"box_gen": MockCustomizable()}}}
+        "Registry",
+        (),
+        {"customizables": {"examples": {"box_gen": MockCustomizable()}}, "caches": {}},
     )()
 
     monkeypatch.setattr(
@@ -616,7 +638,9 @@ def test_export_payload_validation_passes(
             return type("Obj", (), {"part": Box(size, 1, 1)})()
 
     mock_registry = type(
-        "Registry", (), {"customizables": {"examples": {"box_gen": MockGen()}}}
+        "Registry",
+        (),
+        {"customizables": {"examples": {"box_gen": MockGen()}}, "caches": {}},
     )()
 
     monkeypatch.setattr(
