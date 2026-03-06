@@ -38,10 +38,31 @@ def make_cache_key(args: tuple, kwargs: dict) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def make_default_cache_service(
+    cache_dir: pathlib.Path | None = None,
+    *,
+    suffix: str = ".brep",
+    temp_folder: pathlib.Path | None = None,
+) -> "CacheService":
+    root = cache_dir if cache_dir is not None else default_cache_dir()
+    root = root.resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    return CacheService(root, suffix=suffix, temp_folder=temp_folder)
+
+
 class CacheService:
-    def __init__(self, cache_folder: pathlib.Path, suffix: str = ".brep"):
+    def __init__(
+        self,
+        cache_folder: pathlib.Path,
+        suffix: str = ".brep",
+        temp_folder: pathlib.Path | None = None,
+    ):
         self.cache_folder = cache_folder
         self.suffix = suffix
+        self.temp_folder = (
+            (cache_folder / ".tmp") if temp_folder is None else temp_folder
+        ).resolve()
+        self.temp_folder.mkdir(parents=True, exist_ok=True)
         self.mem_cache = {}
 
     def lookup(self, module: str, name: str, args: tuple, kwargs: dict) -> Part | None:
@@ -96,7 +117,9 @@ class CacheService:
         file_name = f"{cache_key}{self.suffix}"
         file_path = func_folder / file_name
 
-        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(
+            delete=False, dir=self.temp_folder
+        ) as temp_file:
             logger.debug(
                 "Writing model %s/%s cache to a temp file to %s",
                 module,
@@ -136,9 +159,10 @@ def disconnect_cache_service(registry: Registry):
 
 @contextmanager
 def use_registry_cache(
-    cache_dir: pathlib.Path | None,
-    use_cache: bool,
     registry: Registry,
+    *,
+    use_cache: bool = True,
+    cache_service: CacheService | None = None,
 ):
     """If use_cache is True and the registry has caches, connect a CacheService for the duration of the block."""
     if not use_cache:
@@ -148,11 +172,10 @@ def use_registry_cache(
     if not caches:
         yield
         return
-    root = cache_dir if cache_dir is not None else default_cache_dir()
-    root = root.resolve()
-    root.mkdir(parents=True, exist_ok=True)
-    cache_service = CacheService(root)
-    connect_cache_service(registry, cache_service)
+    effective_cache_service = (
+        cache_service if cache_service is not None else make_default_cache_service()
+    )
+    connect_cache_service(registry, effective_cache_service)
     try:
         yield
     finally:

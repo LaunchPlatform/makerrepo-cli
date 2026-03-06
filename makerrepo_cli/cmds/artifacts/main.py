@@ -5,6 +5,7 @@ import pathlib
 import click
 from ocp_vscode import Camera
 
+from ...core.cache import make_default_cache_service
 from ...core.cache import use_registry_cache
 from ...core.repo.repo import collect_from_repo
 from ..environment import Environment
@@ -150,7 +151,13 @@ def view(
         target_artifacts = resolve_items(registry, artifacts, "artifacts", "artifact")
 
     with (
-        use_registry_cache(env.cache_dir, env.use_cache, registry),
+        use_registry_cache(
+            registry,
+            use_cache=env.use_cache,
+            cache_service=make_default_cache_service(env.cache_dir)
+            if env.use_cache
+            else None,
+        ),
         timed_block(env.logger),
     ):
         realized_artifacts = _realize_artifacts(target_artifacts)
@@ -224,7 +231,13 @@ def export(
         target_artifacts = resolve_items(registry, artifacts, "artifacts", "artifact")
 
     with (
-        use_registry_cache(env.cache_dir, env.use_cache, registry),
+        use_registry_cache(
+            registry,
+            use_cache=env.use_cache,
+            cache_service=make_default_cache_service(env.cache_dir)
+            if env.use_cache
+            else None,
+        ),
         timed_block(env.logger),
     ):
         realized = _realize_artifacts(target_artifacts)
@@ -329,7 +342,13 @@ def snapshot(
         target_artifacts = resolve_items(registry, artifacts, "artifacts", "artifact")
 
     with (
-        use_registry_cache(env.cache_dir, env.use_cache, registry),
+        use_registry_cache(
+            registry,
+            use_cache=env.use_cache,
+            cache_service=make_default_cache_service(env.cache_dir)
+            if env.use_cache
+            else None,
+        ),
         timed_block(env.logger),
     ):
         realized_artifacts = _realize_artifacts(target_artifacts)

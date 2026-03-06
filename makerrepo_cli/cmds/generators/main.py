@@ -11,6 +11,7 @@ from ocp_vscode import Camera
 from pydantic import BaseModel
 from pydantic import ValidationError
 
+from ...core.cache import make_default_cache_service
 from ...core.cache import use_registry_cache
 from ...core.repo.repo import collect_from_repo
 from ..environment import Environment
@@ -214,8 +215,11 @@ def view(
     params = _validate_params(gen, payload_dict)
     if params is None:
         sys.exit(1)
+    cache_service = make_default_cache_service(env.cache_dir) if env.use_cache else None
     with (
-        use_registry_cache(env.cache_dir, env.use_cache, registry),
+        use_registry_cache(
+            registry, use_cache=env.use_cache, cache_service=cache_service
+        ),
         timed_block(env.logger),
     ):
         realized = _realize_generator(gen, params)
@@ -305,8 +309,11 @@ def export(
     params = _validate_params(gen, payload_dict)
     if params is None:
         sys.exit(1)
+    cache_service = make_default_cache_service(env.cache_dir) if env.use_cache else None
     with (
-        use_registry_cache(env.cache_dir, env.use_cache, registry),
+        use_registry_cache(
+            registry, use_cache=env.use_cache, cache_service=cache_service
+        ),
         timed_block(env.logger),
     ):
         realized = _realize_generator(gen, params)
@@ -419,8 +426,11 @@ def snapshot(
     params = _validate_params(gen, payload_dict)
     if params is None:
         sys.exit(1)
+    cache_service = make_default_cache_service(env.cache_dir) if env.use_cache else None
     with (
-        use_registry_cache(env.cache_dir, env.use_cache, registry),
+        use_registry_cache(
+            registry, use_cache=env.use_cache, cache_service=cache_service
+        ),
         timed_block(env.logger),
     ):
         realized = _realize_generator(gen, params)
