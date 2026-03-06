@@ -54,15 +54,15 @@ def test_cache_lookup(cache_folder: pathlib.Path, cache_service: CacheService):
     kwargs = dict(key0="val0")
     assert cache_service.lookup(module_name, func_name, args, kwargs) is None
 
-    module_folder = cache_folder / module_name
-    module_folder.mkdir()
+    func_folder = cache_folder / module_name / func_name
+    func_folder.mkdir(parents=True)
     assert cache_service.lookup(module_name, func_name, args, kwargs) is None
 
     from build123d import Box
     from build123d import export_brep
 
     cache_key = make_cache_key(args, kwargs)
-    file_path = module_folder / f"{func_name}_{cache_key}{cache_service.suffix}"
+    file_path = func_folder / f"{cache_key}{cache_service.suffix}"
     export_brep(Box(1, 1, 1), file_path)
 
     result = cache_service.lookup(module_name, func_name, args, kwargs)

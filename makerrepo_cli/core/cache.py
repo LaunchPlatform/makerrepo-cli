@@ -46,7 +46,7 @@ class CacheService:
 
     def lookup(self, module: str, name: str, args: tuple, kwargs: dict) -> Part | None:
         cache_key = make_cache_key(args, kwargs)
-        file_name = f"{name}_{cache_key}{self.suffix}"
+        file_name = f"{cache_key}{self.suffix}"
 
         mem_cache_key = (module, name, file_name)
         if mem_cache_key in self.mem_cache:
@@ -58,22 +58,22 @@ class CacheService:
             )
             return self.mem_cache[mem_cache_key]
 
-        module_folder = self.cache_folder / module
-        if not module_folder.is_dir():
+        func_folder = self.cache_folder / module / name
+        if not func_folder.is_dir():
             logger.debug(
-                "Module folder %s not found, skip cache lookup for %s/%s",
-                module_folder,
+                "Cache folder %s not found, skip cache lookup for %s/%s",
+                func_folder,
                 module,
                 name,
             )
             return None
 
-        file_path = module_folder / file_name
+        file_path = func_folder / file_name
         if not file_path.is_file():
             logger.debug(
                 "Cache file %s not found, skip cache lookup for %s/%s",
                 file_path,
-                module_folder,
+                func_folder,
                 module,
                 name,
             )
@@ -89,12 +89,12 @@ class CacheService:
         return result
 
     def store(self, module: str, name: str, args: tuple, kwargs: dict, obj: Part):
-        module_folder = self.cache_folder / module
-        module_folder.mkdir(parents=True, exist_ok=True)
+        func_folder = self.cache_folder / module / name
+        func_folder.mkdir(parents=True, exist_ok=True)
 
         cache_key = make_cache_key(args, kwargs)
-        file_name = f"{name}_{cache_key}{self.suffix}"
-        file_path = module_folder / file_name
+        file_name = f"{cache_key}{self.suffix}"
+        file_path = func_folder / file_name
 
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             logger.debug(

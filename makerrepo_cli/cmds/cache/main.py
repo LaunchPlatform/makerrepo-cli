@@ -1,5 +1,7 @@
+import logging
 import os
 import pathlib
+from collections import defaultdict
 
 import click
 import questionary
@@ -12,7 +14,10 @@ from rich.table import Table
 from ...core.cache import default_cache_dir
 from ..environment import Environment
 from ..environment import pass_env
+from ..shared.utils import escape
 from .cli import cli
+
+logger = logging.getLogger(__name__)
 
 # Cache files we can view in the CAD viewer (BREP only for now)
 VIEWABLE_SUFFIX = ".brep"
@@ -43,6 +48,66 @@ def _collect_cache_files(cache_dir: pathlib.Path) -> list[tuple[pathlib.Path, in
     return sorted(out)
 
 
+def _group_cache_files_by_module_name(
+    files: list[tuple[pathlib.Path, int]],
+    cache_suffix: str = ".brep",
+) -> defaultdict[tuple[str, str], list[tuple[pathlib.Path, int]]]:
+    """Group cache files by (module, name). Path layout: <module>/<name>/<cache_key>.brep."""
+    grouped: defaultdict[tuple[str, str], list[tuple[pathlib.Path, int]]] = defaultdict(
+        list
+    )
+    for rel_path, size in files:
+        parts = rel_path.parts
+        if len(parts) < 3 or rel_path.suffix.lower() != cache_suffix:
+            continue
+        module, name = parts[0], parts[1]
+        if not module or not name:
+            continue
+        key = (module, name)
+        grouped[key].append((rel_path, size))
+    return grouped
+
+
+def _find_dangling_cache_files(
+    caches: dict[str, dict[str, object]],
+    module_name_files: defaultdict[tuple[str, str], list[tuple[pathlib.Path, int]]],
+) -> list[tuple[pathlib.Path, int]]:
+    """Return (rel_path, size) for cache files that have no matching @cached function."""
+    known_keys = {
+        (module, name) for module, items_dict in caches.items() for name in items_dict
+    }
+    return [
+        (rel_path, size)
+        for (module, name), file_list in module_name_files.items()
+        if (module, name) not in known_keys
+        for rel_path, size in file_list
+    ]
+
+
+def _print_cache_files_only(
+    root: pathlib.Path,
+    files: list[tuple[pathlib.Path, int]],
+) -> None:
+    """Print a simple table of cache files when no @cached functions are found."""
+    if not files:
+        return
+    total_size = sum(s for _, s in files)
+    table = Table(
+        title=f"Cache files — {root}",
+        box=box.SIMPLE,
+        header_style="yellow",
+        expand=True,
+    )
+    table.add_column("Path", style="cyan")
+    table.add_column("Size", justify="right", style="green")
+    for rel_path, size in files:
+        table.add_row(rel_path.as_posix(), _format_size(size))
+    table.caption = (
+        f"{len(files)} file(s), total [bold]{_format_size(total_size)}[/bold]"
+    )
+    rich.print(Padding(table, (0, 0, 0, 2)))
+
+
 def _prompt_cache_prune_selection(
     files: list[tuple[pathlib.Path, int]],
 ) -> list[pathlib.Path] | None:
@@ -66,32 +131,94 @@ def _prompt_cache_prune_selection(
     return list(selected) if selected else None
 
 
-@cli.command(name="list", help="List cache files and their sizes.")
+@cli.command(name="list", help="List cached decorated functions and their cache files.")
 @pass_env
 def list_caches(env: Environment):
-    """List all cache files under the cache directory with their sizes."""
+    """Scan repo for @cached functions, then list each with short desc, file:lineno, and matching cache files."""
+    from ...core.repo.repo import collect_from_repo
+
     root = (
         env.cache_dir if env.cache_dir is not None else default_cache_dir()
     ).resolve()
+    registry = collect_from_repo()
+    caches = registry.caches
     files = _collect_cache_files(root)
-    if not files:
-        click.echo(f"No cache files in {root}")
+    module_name_files = _group_cache_files_by_module_name(files)
+
+    if not caches:
+        if not files:
+            click.echo(
+                f"No cached functions found and no cache files in {root}"
+                if root.is_dir()
+                else f"No cached functions found; cache directory does not exist: {root}"
+            )
+        else:
+            click.echo("No cached functions found in the current directory.")
+            _print_cache_files_only(root, files)
         return
-    total_size = sum(s for _, s in files)
+
+    env.logger.info(
+        "Listing cached functions from current directory",
+        extra={"markup": True, "highlighter": None},
+    )
     table = Table(
-        title=f"Cache files — {root}",
         box=box.SIMPLE,
         header_style="yellow",
         expand=True,
     )
-    table.add_column("Path", style="cyan")
+    table.add_column("Function", style="cyan")
+    table.add_column("Description")
     table.add_column("Size", justify="right", style="green")
-    for rel_path, size in files:
-        table.add_row(rel_path.as_posix(), _format_size(size))
-    table.caption = (
-        f"{len(files)} file(s), total [bold]{_format_size(total_size)}[/bold]"
-    )
+    table.add_column("Cache files", no_wrap=False, overflow="fold", min_width=45)
+    total_size = 0
+    for module, items_dict in sorted(caches.items()):
+        for name, cached_obj in sorted(items_dict.items()):
+            short_desc = cached_obj.short_desc or ""
+            key = (cached_obj.module, cached_obj.name)
+            matched = module_name_files.get(key, [])
+            total_size += sum(s for _, s in matched)
+            func_cell = f"{escape(module)}/{escape(name)}"
+            size_str = _format_size(sum(s for _, s in matched))
+            if matched:
+                files_cell = "\n".join(
+                    rel_path.as_posix() for rel_path, _ in sorted(matched)
+                )
+            else:
+                files_cell = "(no cache files)"
+            table.add_row(
+                func_cell,
+                short_desc or "—",
+                size_str,
+                files_cell,
+            )
     rich.print(Padding(table, (0, 0, 0, 2)))
+
+    # List dangling cache files (match cache path pattern but no corresponding @cached function)
+    dangling = _find_dangling_cache_files(caches, module_name_files)
+    if dangling:
+        dangling_size = sum(s for _, s in dangling)
+        rich.print(
+            Padding(
+                f"[dim]Dangling cache files (no matching @cached function): {len(dangling)} file(s), {_format_size(dangling_size)}[/dim]",
+                (1, 0, 0, 2),
+            )
+        )
+        for rel_path, size in sorted(dangling):
+            rich.print(
+                Padding(
+                    f"  [dim]{rel_path.as_posix()}  {_format_size(size)}[/dim]",
+                    (0, 0, 0, 2),
+                )
+            )
+
+    if files:
+        total_size_all = sum(s for _, s in files)
+        rich.print(
+            Padding(
+                f"[dim]{len(files)} file(s), total {_format_size(total_size_all)}[/dim]",
+                (1, 0, 0, 2),
+            )
+        )
 
 
 def _viewable_cache_files(
@@ -195,13 +322,19 @@ def view_cache(
 
 @cli.command(
     name="prune",
-    help="Remove cache files. With no arguments, prompts to select files interactively. Use --all to remove everything, or pass paths to remove specific files or folders.",
+    help="Remove cache files. With no arguments, prompts to select files interactively. Use --all to remove everything, --dangling to remove only orphaned files, or pass paths to remove specific files or folders.",
 )
 @click.option(
     "--all",
     "prune_all",
     is_flag=True,
     help="Remove all cache files.",
+)
+@click.option(
+    "--dangling",
+    "prune_dangling",
+    is_flag=True,
+    help="Remove only dangling cache files (no matching @cached function).",
 )
 @click.argument(
     "paths",
@@ -212,15 +345,22 @@ def view_cache(
 def prune_caches(
     env: Environment,
     prune_all: bool,
+    prune_dangling: bool,
     paths: tuple[pathlib.Path, ...],
 ):
-    """Delete cache files: either all (--all) or the given paths relative to the cache directory."""
+    """Delete cache files: either all (--all), only dangling (--dangling), or the given paths relative to the cache directory."""
     root = (
         env.cache_dir if env.cache_dir is not None else default_cache_dir()
     ).resolve()
     if not root.is_dir():
         click.echo(f"Cache directory does not exist: {root}")
         return
+    if prune_all and prune_dangling:
+        click.echo("Cannot use --all and --dangling together.")
+        raise SystemExit(2)
+    if prune_dangling and paths:
+        click.echo("Cannot use --dangling and path arguments together.")
+        raise SystemExit(2)
     if prune_all:
         if paths:
             click.echo("Cannot use --all and path arguments together.")
@@ -237,6 +377,25 @@ def prune_caches(
             if d.is_dir() and not any(d.iterdir()):
                 d.rmdir()
         click.echo(f"Removed {len(to_remove)} cache file(s).")
+        return
+    if prune_dangling:
+        from ...core.repo.repo import collect_from_repo
+
+        registry = collect_from_repo()
+        caches = registry.caches
+        files = _collect_cache_files(root)
+        module_name_files = _group_cache_files_by_module_name(files)
+        dangling = _find_dangling_cache_files(caches, module_name_files)
+        if not dangling:
+            click.echo("No dangling cache files to remove.")
+            return
+        for rel_path, _ in dangling:
+            (root / rel_path).unlink()
+        # Remove empty dirs under root (only those that might be left after removing dangling)
+        for d in sorted(root.rglob("*"), key=lambda x: -len(x.parts)):
+            if d.is_dir() and not any(d.iterdir()):
+                d.rmdir()
+        click.echo(f"Removed {len(dangling)} dangling cache file(s).")
         return
     files = _collect_cache_files(root)
     if not paths:
