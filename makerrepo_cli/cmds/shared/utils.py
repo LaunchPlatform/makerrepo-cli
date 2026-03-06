@@ -378,23 +378,30 @@ def print_items_table(
     title: str,
     items_dict: dict[str, dict[str, Any]],
     sample_attr: str = "sample",
+    desc_attr: str = "short_desc",
+    *,
+    show_sample: bool = True,
 ) -> None:
-    """Print a rich table of items (Module, Name, Sample)."""
+    """Print a rich table of items with Function (module/name), Short desc, and optionally Sample."""
     table = Table(
         title=title,
         box=box.SIMPLE,
         header_style=TABLE_HEADER_STYLE,
         expand=True,
     )
-    table.add_column("Module", style=TABLE_COLUMN_STYLE)
-    table.add_column("Name", style=TABLE_COLUMN_STYLE)
-    table.add_column("Sample", style=TABLE_COLUMN_STYLE)
+    table.add_column("Function", style=TABLE_COLUMN_STYLE)
+    table.add_column("Short desc")
+    if show_sample:
+        table.add_column("Sample", style=TABLE_COLUMN_STYLE)
     for module, items in items_dict.items():
-        for i, (name, item) in enumerate(items.items()):
-            sample = getattr(item, sample_attr, "")
-            table.add_row(
-                escape(module) if i == 0 else "",
-                escape(name),
-                str(sample) if sample else "",
-            )
+        for name, item in items.items():
+            func_cell = f"{escape(module)}/{escape(name)}"
+            desc = getattr(item, desc_attr, None)
+            desc_cell = str(desc).strip() if desc else "—"
+            if show_sample:
+                sample = getattr(item, sample_attr, "")
+                sample_cell = str(sample)
+                table.add_row(func_cell, desc_cell, sample_cell)
+            else:
+                table.add_row(func_cell, desc_cell)
     rich.print(Padding(table, (1, 0, 0, 4)))

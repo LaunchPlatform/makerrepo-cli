@@ -142,7 +142,7 @@ def list_generators(env: Environment, output_format: str | None):
         "Listing generators from current directory",
         extra={"markup": True, "highlighter": None},
     )
-    print_items_table("Generators", customizables)
+    print_items_table("Generators", customizables, show_sample=False)
 
 
 @cli.command(help="View generator output (accepts JSON payload)")
