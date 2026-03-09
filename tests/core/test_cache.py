@@ -1,4 +1,6 @@
+import os
 import pathlib
+import stat
 
 import pytest
 
@@ -82,6 +84,43 @@ def test_cache_store(cache_folder: pathlib.Path, cache_service: CacheService):
 
     result = cache_service.lookup(module_name, func_name, args, kwargs)
     assert result is not None
+
+
+@pytest.mark.parametrize(
+    "umask_value, expected_mode",
+    [
+        (0o022, 0o644),
+        (0o027, 0o640),
+        (0o077, 0o600),
+    ],
+)
+def test_cache_store_file_permission(
+    cache_folder: pathlib.Path,
+    cache_service: CacheService,
+    umask_value: int,
+    expected_mode: int,
+):
+    module_name = "mock_mod"
+    func_name = "mock_artifact"
+    args = ("foo",)
+    kwargs = dict(key0="val0")
+
+    from build123d import Box
+
+    old_umask = os.umask(umask_value)
+    try:
+        cache_service.store(module_name, func_name, args, kwargs, Box(1, 1, 1))
+    finally:
+        os.umask(old_umask)
+
+    cache_key = make_cache_key(args, kwargs)
+    file_path = (
+        cache_folder / module_name / func_name / f"{cache_key}{cache_service.suffix}"
+    )
+    assert file_path.is_file()
+
+    mode = stat.S_IMODE(file_path.stat().st_mode)
+    assert mode == expected_mode
 
 
 def test_connect_cache_service(

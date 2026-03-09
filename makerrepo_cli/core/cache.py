@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import pathlib
-import tempfile
+import secrets
 from contextlib import contextmanager
 
 from build123d import export_brep
@@ -117,17 +117,21 @@ class CacheService:
         file_name = f"{cache_key}{self.suffix}"
         file_path = func_folder / file_name
 
-        with tempfile.NamedTemporaryFile(
-            delete=False, dir=self.temp_folder
-        ) as temp_file:
-            logger.debug(
-                "Writing model %s/%s cache to a temp file to %s",
-                module,
-                name,
-                temp_file.name,
-            )
-            export_brep(obj, temp_file.name)
-        pathlib.Path(temp_file.name).rename(file_path)
+        # Use a unique temp file name per call so that concurrent writers
+        # to the same cache entry don't interfere with each other's temp
+        # files, while still letting the filesystem apply umask/default ACLs.
+        temp_path = func_folder / f".{file_name}.{secrets.token_hex(8)}.tmp"
+        logger.debug(
+            "Writing model %s/%s cache to a temp file to %s",
+            module,
+            name,
+            temp_path,
+        )
+        # Let the filesystem create the temp file so that its permissions
+        # and ACLs respect the current umask and any default ACLs on
+        # the cache directory, then atomically move it into place.
+        export_brep(obj, temp_path)
+        temp_path.replace(file_path)
         logger.info("Output model %s/%s cache to %s", module, name, file_path)
         mem_cache_key = (module, name, file_name)
         self.mem_cache[mem_cache_key] = obj
