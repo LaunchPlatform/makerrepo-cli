@@ -32,6 +32,7 @@ from ..shared.utils import ListOutputFormat
 from ..shared.utils import print_items_table
 from ..shared.utils import prompt_single_item_selection
 from ..shared.utils import resolve_items
+from ..shared.utils import select_model_from_result
 from ..shared.utils import SNAPSHOT_CAMERA_CHOICES
 from ..shared.utils import timed_block
 from .cli import cli
@@ -93,10 +94,17 @@ def _validate_params(
 def _realize_generator(
     customizable: Customizable,
     params: BaseModel,
+    *,
+    use_versioned: bool = False,
 ) -> object:
     """Run generator.func(params) and return the result. Handles GeneratorValidationError."""
     try:
-        return customizable.func(params)
+        value = customizable.func(params)
+        return select_model_from_result(
+            value,
+            use_versioned=use_versioned,
+            context=item_display_name(customizable, "generator"),
+        )
     except GeneratorValidationError as e:
         gen_name = item_display_name(customizable, "generator")
         lines = [
@@ -173,6 +181,11 @@ def list_generators(env: Environment, output_format: str | None):
     show_default=True,
     help=colormap_option_help("generator output"),
 )
+@click.option(
+    "--versioned",
+    is_flag=True,
+    help="Use the versioned model for generator output (if available)",
+)
 @pass_env
 def view(
     env: Environment,
@@ -181,6 +194,7 @@ def view(
     port: int,
     camera: str,
     colormap: str,
+    versioned: bool,
 ):
     registry = collect_from_repo()
     customizables = registry.customizables
@@ -222,7 +236,7 @@ def view(
         ),
         timed_block(env.logger),
     ):
-        realized = _realize_generator(gen, params)
+        realized = _realize_generator(gen, params, use_versioned=versioned)
     from ocp_vscode import show
 
     camera_enum = Camera[camera.upper()]
@@ -377,6 +391,11 @@ def export(
     show_default=True,
     help=colormap_option_help("generator output"),
 )
+@click.option(
+    "--versioned",
+    is_flag=True,
+    help="Use the versioned model for generator output (if available)",
+)
 @pass_env
 def snapshot(
     env: Environment,
@@ -385,6 +404,7 @@ def snapshot(
     output: pathlib.Path,
     camera: str,
     colormap: str,
+    versioned: bool,
 ):
     import asyncio
 
@@ -433,7 +453,7 @@ def snapshot(
         ),
         timed_block(env.logger),
     ):
-        realized = _realize_generator(gen, params)
+        realized = _realize_generator(gen, params, use_versioned=versioned)
     model_data = convert(realized)
 
     apply_colormap_to_payload(model_data, Colormap(colormap))

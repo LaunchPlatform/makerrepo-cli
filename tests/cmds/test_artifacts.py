@@ -458,6 +458,37 @@ def test_export_single_artifact_step(
     assert "ISO-10303-21" in content
 
 
+def test_realize_artifact_result_model_and_versioned(monkeypatch: MonkeyPatch):
+    from mr.data_types import Result
+
+    class DummyArtifact:
+        module = "examples"
+        name = "dummy"
+
+        def __init__(self):
+            self._calls: list[str] = []
+
+        def func(self):
+            self._calls.append("called")
+            return Result(model="primary", versioned="versioned")
+
+    from makerrepo_cli.cmds.artifacts.main import _realize_artifacts
+
+    artifact = DummyArtifact()
+
+    # Default behavior: use primary model
+    realized = _realize_artifacts([artifact], show_progress=False)
+    assert realized == ["primary"]
+
+    # When use_versioned is True, pick the versioned variant
+    realized_versioned = _realize_artifacts(
+        [artifact],
+        show_progress=False,
+        use_versioned=True,
+    )
+    assert realized_versioned == ["versioned"]
+
+
 def test_export_with_artifact_name_to_stl(
     monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,

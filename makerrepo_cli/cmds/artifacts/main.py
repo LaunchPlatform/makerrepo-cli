@@ -29,6 +29,7 @@ from ..shared.utils import print_items_table
 from ..shared.utils import prompt_item_selection
 from ..shared.utils import resolve_items
 from ..shared.utils import run_with_progress
+from ..shared.utils import select_model_from_result
 from ..shared.utils import SNAPSHOT_CAMERA_CHOICES
 from ..shared.utils import timed_block
 from .cli import cli
@@ -48,16 +49,26 @@ def _realize_artifacts(
     target_artifacts: list,
     *,
     show_progress: bool = True,
+    use_versioned: bool = False,
 ) -> list:
     """Run artifact.func() for each artifact, with progress bar and in-process cache."""
 
     def do_one(artifact: object) -> object:
-        key = (getattr(artifact, "module", ""), getattr(artifact, "name", ""))
+        key = (
+            getattr(artifact, "module", ""),
+            getattr(artifact, "name", ""),
+            use_versioned,
+        )
         if key in _REALIZE_CACHE:
             return _REALIZE_CACHE[key]
         value = getattr(artifact, "func")()
-        _REALIZE_CACHE[key] = value
-        return value
+        selected = select_model_from_result(
+            value,
+            use_versioned=use_versioned,
+            context=item_display_name(artifact, "artifact"),
+        )
+        _REALIZE_CACHE[key] = selected
+        return selected
 
     return run_with_progress(
         target_artifacts,
@@ -122,6 +133,11 @@ def list_artifacts(env: Environment, output_format: str | None):
     show_default=True,
     help=colormap_option_help("artifacts"),
 )
+@click.option(
+    "--versioned",
+    is_flag=True,
+    help="Use the versioned model for artifacts (if available)",
+)
 @pass_env
 def view(
     env: Environment,
@@ -129,6 +145,7 @@ def view(
     port: int,
     camera: str,
     colormap: str,
+    versioned: bool,
 ):
     registry = collect_from_repo()
     if not registry.artifacts:
@@ -160,7 +177,10 @@ def view(
         ),
         timed_block(env.logger),
     ):
-        realized_artifacts = _realize_artifacts(target_artifacts)
+        realized_artifacts = _realize_artifacts(
+            target_artifacts,
+            use_versioned=versioned,
+        )
     from ocp_vscode import show
 
     camera_enum = Camera[camera.upper()]
@@ -194,9 +214,18 @@ def view(
     type=click.Choice(EXPORT_FORMATS, case_sensitive=False),
     default=None,
 )
+@click.option(
+    "--versioned",
+    is_flag=True,
+    help="Use the versioned model for artifacts (if available)",
+)
 @pass_env
 def export(
-    env: Environment, artifacts: tuple[str, ...], output: pathlib.Path, fmt: str | None
+    env: Environment,
+    artifacts: tuple[str, ...],
+    output: pathlib.Path,
+    fmt: str | None,
+    versioned: bool,
 ):
     registry = collect_from_repo()
     if not registry.artifacts:
@@ -240,7 +269,10 @@ def export(
         ),
         timed_block(env.logger),
     ):
-        realized = _realize_artifacts(target_artifacts)
+        realized = _realize_artifacts(
+            target_artifacts,
+            use_versioned=versioned,
+        )
     shapes = [get_shape(obj) for obj in realized]
 
     # Infer format from output path if not given
@@ -306,6 +338,11 @@ def export(
     show_default=True,
     help=colormap_option_help("artifacts"),
 )
+@click.option(
+    "--versioned",
+    is_flag=True,
+    help="Use the versioned model for artifacts (if available)",
+)
 @pass_env
 def snapshot(
     env: Environment,
@@ -313,6 +350,7 @@ def snapshot(
     output: pathlib.Path,
     camera: str,
     colormap: str,
+    versioned: bool,
 ):
     """Capture a screenshot from artifacts."""
     import asyncio
@@ -351,7 +389,10 @@ def snapshot(
         ),
         timed_block(env.logger),
     ):
-        realized_artifacts = _realize_artifacts(target_artifacts)
+        realized_artifacts = _realize_artifacts(
+            target_artifacts,
+            use_versioned=versioned,
+        )
 
     # Convert to model data format using convert from utils
     model_data = convert(realized_artifacts)

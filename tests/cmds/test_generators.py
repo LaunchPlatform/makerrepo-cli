@@ -665,3 +665,38 @@ def test_export_payload_validation_passes(
 
     assert result.exit_code == 0
     assert (tmp_path / "out.step").exists()
+
+
+def test_realize_generator_result_model_and_versioned(monkeypatch: MonkeyPatch):
+    from mr import Customizable
+    from mr.data_types import Result
+    from pydantic import BaseModel
+
+    class Params(BaseModel):
+        value: int = 1
+
+    class DummyCustomizable(Customizable):  # type: ignore[misc]
+        def __init__(self):
+            # Minimal attributes used by _realize_generator and helpers
+            object.__setattr__(self, "module", "examples")
+            object.__setattr__(self, "name", "dummy")
+            object.__setattr__(self, "func", self._func)
+            object.__setattr__(self, "parameters_schema", Params)
+
+        def _func(self, params: Params):
+            return Result(model="primary", versioned="versioned")
+
+    from makerrepo_cli.cmds.generators.main import _realize_generator
+
+    customizable = DummyCustomizable()
+    params = Params()
+
+    realized = _realize_generator(customizable, params)
+    assert realized == "primary"
+
+    realized_versioned = _realize_generator(
+        customizable,
+        params,
+        use_versioned=True,
+    )
+    assert realized_versioned == "versioned"
