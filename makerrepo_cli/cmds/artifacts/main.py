@@ -3,6 +3,7 @@ import logging
 import pathlib
 
 import click
+from mr import get_build_version
 from ocp_vscode import Camera
 
 from ...core.cache import make_default_cache_service
@@ -309,8 +310,11 @@ def export(
     if not out_dir.is_dir():
         out_dir.mkdir(parents=True, exist_ok=True)
 
+    build_version = get_build_version()
     for artifact, shape in zip(target_artifacts, shapes):
-        out_path = out_dir / f"{item_safe_filename(artifact, 'artifact')}{ext}"
+        stem = item_safe_filename(artifact, "artifact")
+        name = f"{stem}.{build_version}{ext}" if build_version else f"{stem}{ext}"
+        out_path = out_dir / name
         export_shape_to_path(shape, out_path, fmt)
         env.logger.info("Exported to %s", out_path)
 
@@ -320,8 +324,8 @@ def export(
 @click.option(
     "-o",
     "--output",
-    help="Output image file path",
-    default="snapshot.png",
+    help="Output image file path (may use {build_version} placeholder)",
+    default="snapshot.{build_version}.png",
     type=click.Path(path_type=pathlib.Path),
 )
 @click.option(
@@ -378,6 +382,9 @@ def snapshot(
         )
     else:
         target_artifacts = resolve_items(registry, artifacts, "artifacts", "artifact")
+
+    build_version = get_build_version()
+    output = pathlib.Path(str(output).format(build_version=build_version))
 
     with (
         use_registry_cache(

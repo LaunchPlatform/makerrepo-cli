@@ -7,6 +7,7 @@ import click
 import rich
 from mr import Customizable
 from mr import GeneratorValidationError
+from mr import get_build_version
 from ocp_vscode import Camera
 from pydantic import BaseModel
 from pydantic import ValidationError
@@ -354,7 +355,10 @@ def export(
     out_dir = output_resolved if output_resolved.is_dir() else output_resolved
     if not out_dir.is_dir():
         out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{item_safe_filename(gen, 'generator')}{ext}"
+    build_version = get_build_version()
+    stem = item_safe_filename(gen, "generator")
+    name = f"{stem}.{build_version}{ext}" if build_version else f"{stem}{ext}"
+    out_path = out_dir / name
     export_shape_to_path(shape, out_path, fmt)
     env.logger.info("Exported to %s", out_path)
 
@@ -373,8 +377,8 @@ def export(
 @click.option(
     "-o",
     "--output",
-    help="Output image file path",
-    default="snapshot.png",
+    help="Output image file path (may use {build_version} placeholder)",
+    default="snapshot.{build_version}.png",
     type=click.Path(path_type=pathlib.Path),
 )
 @click.option(
@@ -446,6 +450,8 @@ def snapshot(
     params = _validate_params(gen, payload_dict)
     if params is None:
         sys.exit(1)
+    build_version = get_build_version()
+    output = pathlib.Path(str(output).format(build_version=build_version))
     cache_service = make_default_cache_service(env.cache_dir) if env.use_cache else None
     with (
         use_registry_cache(
