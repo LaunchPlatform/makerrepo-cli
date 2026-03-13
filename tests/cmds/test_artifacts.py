@@ -408,6 +408,44 @@ async def test_snapshot(
     await asyncio.wait_for(asyncio.to_thread(operate), 60)
 
 
+@pytest.mark.asyncio
+async def test_snapshot_output_template_includes_build_version(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """When -o contains {build_version}, output path is formatted with get_build_version()."""
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.artifacts.main.get_build_version", lambda: "v99"
+    )
+
+    def operate():
+        with switch_cwd(fixtures_folder):
+            from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
+            from makerrepo_cli.core.repo.repo import collect_from_repo
+
+            registry = collect_from_repo()
+            flat = list(_all_artifacts_flat(registry))
+            first_artifact = flat[0][2]
+            monkeypatch.setattr(
+                "makerrepo_cli.cmds.artifacts.main._prompt_artifact_selection",
+                lambda reg: [first_artifact],
+            )
+            template_path = tmp_path / "snapshot.{build_version}.png"
+            result = cli_runner.invoke(
+                cli,
+                ["artifacts", "snapshot", "-o", str(template_path)],
+                catch_exceptions=False,
+            )
+        assert result.exit_code == 0
+        expected_file = tmp_path / "snapshot.v99.png"
+        assert expected_file.exists()
+        assert expected_file.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+
+    await asyncio.wait_for(asyncio.to_thread(operate), 60)
+
+
 def test_export_unknown_extension(
     monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,
@@ -522,7 +560,49 @@ def test_export_with_artifact_name_to_stl(
     assert result.exit_code == 0
     stl_files = list(tmp_path.glob("*.stl"))
     assert len(stl_files) == 1
+    # With get_build_version() returning "" (conftest default), filename is stem.stl
+    assert stl_files[0].name == "examples.main_main.stl"
     data = stl_files[0].read_bytes()
     assert len(data) > 0
     # ASCII STL starts with "solid"; binary STL has 80-byte header + 4-byte count
     assert b"solid" in data[:100] or len(data) >= 84
+
+
+def test_export_artifact_filename_includes_build_version(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """When get_build_version() returns a value, export-to-dir filename is stem.build_version.ext."""
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.artifacts.main.get_build_version", lambda: "1.0"
+    )
+    with switch_cwd(fixtures_folder):
+        from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
+        from makerrepo_cli.core.repo.repo import collect_from_repo
+
+        registry = collect_from_repo()
+        flat = list(_all_artifacts_flat(registry))
+        first_artifact = flat[0][2]
+        monkeypatch.setattr(
+            "makerrepo_cli.cmds.artifacts.main._prompt_artifact_selection",
+            lambda reg: [first_artifact],
+        )
+        result = cli_runner.invoke(
+            cli,
+            [
+                "artifacts",
+                "export",
+                "-o",
+                str(tmp_path),
+                "-f",
+                "stl",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    stl_files = list(tmp_path.glob("*.stl"))
+    assert len(stl_files) == 1
+    assert stl_files[0].name == "examples.main_main.1.0.stl"

@@ -238,6 +238,56 @@ def test_export_single_generator_step(
     assert "ISO-10303-21" in content
 
 
+def test_export_generator_filename_includes_build_version(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """When get_build_version() returns a value, export-to-dir filename is stem.build_version.ext."""
+    from build123d import Box
+
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.get_build_version", lambda: "2.0"
+    )
+
+    class MockGen:
+        module = "examples"
+        name = "box_gen"
+
+        def func(self, payload):
+            return type("Obj", (), {"part": Box(5, 5, 5)})()
+
+    mock_registry = type(
+        "Registry",
+        (),
+        {"customizables": {"examples": {"box_gen": MockGen()}}, "caches": {}},
+    )()
+
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.collect_from_repo",
+        lambda cwd=None: mock_registry,
+    )
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "generators",
+                "export",
+                "-o",
+                str(tmp_path),
+                "box_gen",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    step_files = list(tmp_path.glob("*.step"))
+    assert len(step_files) == 1
+    assert step_files[0].name == "examples_box_gen.2.0.step"
+
+
 def test_snapshot_no_generators(
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
