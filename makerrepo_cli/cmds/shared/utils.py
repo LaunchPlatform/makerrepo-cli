@@ -8,8 +8,11 @@ from enum import StrEnum
 from typing import Any
 from typing import Callable
 
+import click
 import questionary
 import rich
+from mr import BuildEnv
+from mr.data_types import Result
 from ocp_vscode import Camera
 from rich import box
 from rich.markup import escape
@@ -37,6 +40,11 @@ EXPORT_FORMATS_3D = ("step", "stl", "brep", "gltf", "3mf")
 EXPORT_FORMATS_2D = ("svg", "dxf")
 EXPORT_FORMATS = (*EXPORT_FORMATS_3D, *EXPORT_FORMATS_2D)
 DEFAULT_EXPORT_FORMAT = "step"
+
+
+def get_build_version() -> str:
+    build_env = BuildEnv.from_local_git_repo()
+    return build_env.get_build_version()
 
 
 @enum.unique
@@ -283,6 +291,43 @@ def run_with_progress(
 def get_shape(obj: Any) -> Any:
     """Return a build123d Shape from a realized item (e.g. BasePartObject.part or Shape)."""
     return getattr(obj, "part", obj)
+
+
+def select_model_from_result(
+    obj: Any,
+    *,
+    use_versioned: bool,
+    context: str,
+) -> Any:
+    """Return the appropriate model from a Result wrapper if present.
+
+    When use_versioned is True, prefer the Result.versioned model, and raise a
+    ClickException if no versioned model is available. Logs an info message when
+    the versioned model is selected so the user knows which variant was used.
+    """
+    if isinstance(obj, Result):
+        if use_versioned:
+            versioned = getattr(obj, "versioned", None)
+            if versioned is None:
+                logger.error(
+                    "Versioned model requested for %s, but Result.versioned is not provided",
+                    context,
+                )
+                raise click.ClickException(
+                    f"Versioned model not available for {context}"
+                )
+            logger.info("Using versioned model for %s", context)
+            return versioned
+        return obj.model
+
+    if use_versioned:
+        logger.error(
+            "Versioned model requested for %s, but function did not return a Result",
+            context,
+        )
+        raise click.ClickException(f"Versioned model not available for {context}")
+
+    return obj
 
 
 def export_shape_to_path(shape: Any, path: pathlib.Path, fmt: str) -> None:

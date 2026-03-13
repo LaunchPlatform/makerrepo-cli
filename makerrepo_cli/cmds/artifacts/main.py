@@ -19,6 +19,7 @@ from ..shared.utils import DEFAULT_COLORMAP
 from ..shared.utils import DEFAULT_EXPORT_FORMAT
 from ..shared.utils import EXPORT_FORMATS
 from ..shared.utils import export_shape_to_path
+from ..shared.utils import get_build_version
 from ..shared.utils import get_colormap
 from ..shared.utils import get_shape
 from ..shared.utils import item_display_name
@@ -29,11 +30,13 @@ from ..shared.utils import print_items_table
 from ..shared.utils import prompt_item_selection
 from ..shared.utils import resolve_items
 from ..shared.utils import run_with_progress
+from ..shared.utils import select_model_from_result
 from ..shared.utils import SNAPSHOT_CAMERA_CHOICES
 from ..shared.utils import timed_block
 from .cli import cli
 
 logger = logging.getLogger(__name__)
+
 
 # Wrappers for tests that mock or use these directly
 _all_artifacts_flat = lambda registry: all_items_flat(registry, "artifacts")
@@ -48,16 +51,26 @@ def _realize_artifacts(
     target_artifacts: list,
     *,
     show_progress: bool = True,
+    use_versioned: bool = False,
 ) -> list:
     """Run artifact.func() for each artifact, with progress bar and in-process cache."""
 
     def do_one(artifact: object) -> object:
-        key = (getattr(artifact, "module", ""), getattr(artifact, "name", ""))
+        key = (
+            getattr(artifact, "module", ""),
+            getattr(artifact, "name", ""),
+            use_versioned,
+        )
         if key in _REALIZE_CACHE:
             return _REALIZE_CACHE[key]
         value = getattr(artifact, "func")()
-        _REALIZE_CACHE[key] = value
-        return value
+        selected = select_model_from_result(
+            value,
+            use_versioned=use_versioned,
+            context=item_display_name(artifact, "artifact"),
+        )
+        _REALIZE_CACHE[key] = selected
+        return selected
 
     return run_with_progress(
         target_artifacts,
@@ -122,6 +135,11 @@ def list_artifacts(env: Environment, output_format: str | None):
     show_default=True,
     help=colormap_option_help("artifacts"),
 )
+@click.option(
+    "--versioned",
+    is_flag=True,
+    help="Use the versioned model for artifacts (if available)",
+)
 @pass_env
 def view(
     env: Environment,
@@ -129,6 +147,7 @@ def view(
     port: int,
     camera: str,
     colormap: str,
+    versioned: bool,
 ):
     registry = collect_from_repo()
     if not registry.artifacts:
@@ -160,7 +179,10 @@ def view(
         ),
         timed_block(env.logger),
     ):
-        realized_artifacts = _realize_artifacts(target_artifacts)
+        realized_artifacts = _realize_artifacts(
+            target_artifacts,
+            use_versioned=versioned,
+        )
     from ocp_vscode import show
 
     camera_enum = Camera[camera.upper()]
@@ -194,9 +216,18 @@ def view(
     type=click.Choice(EXPORT_FORMATS, case_sensitive=False),
     default=None,
 )
+@click.option(
+    "--versioned",
+    is_flag=True,
+    help="Use the versioned model for artifacts (if available)",
+)
 @pass_env
 def export(
-    env: Environment, artifacts: tuple[str, ...], output: pathlib.Path, fmt: str | None
+    env: Environment,
+    artifacts: tuple[str, ...],
+    output: pathlib.Path,
+    fmt: str | None,
+    versioned: bool,
 ):
     registry = collect_from_repo()
     if not registry.artifacts:
@@ -240,7 +271,10 @@ def export(
         ),
         timed_block(env.logger),
     ):
-        realized = _realize_artifacts(target_artifacts)
+        realized = _realize_artifacts(
+            target_artifacts,
+            use_versioned=versioned,
+        )
     shapes = [get_shape(obj) for obj in realized]
 
     # Infer format from output path if not given
@@ -277,8 +311,11 @@ def export(
     if not out_dir.is_dir():
         out_dir.mkdir(parents=True, exist_ok=True)
 
+    build_version = get_build_version()
     for artifact, shape in zip(target_artifacts, shapes):
-        out_path = out_dir / f"{item_safe_filename(artifact, 'artifact')}{ext}"
+        stem = item_safe_filename(artifact, "artifact")
+        name = f"{stem}.{build_version}{ext}" if build_version else f"{stem}{ext}"
+        out_path = out_dir / name
         export_shape_to_path(shape, out_path, fmt)
         env.logger.info("Exported to %s", out_path)
 
@@ -288,8 +325,8 @@ def export(
 @click.option(
     "-o",
     "--output",
-    help="Output image file path",
-    default="snapshot.png",
+    help="Output image file path (may use {build_version} placeholder)",
+    default="snapshot.{build_version}.png",
     type=click.Path(path_type=pathlib.Path),
 )
 @click.option(
@@ -306,6 +343,11 @@ def export(
     show_default=True,
     help=colormap_option_help("artifacts"),
 )
+@click.option(
+    "--versioned",
+    is_flag=True,
+    help="Use the versioned model for artifacts (if available)",
+)
 @pass_env
 def snapshot(
     env: Environment,
@@ -313,6 +355,7 @@ def snapshot(
     output: pathlib.Path,
     camera: str,
     colormap: str,
+    versioned: bool,
 ):
     """Capture a screenshot from artifacts."""
     import asyncio
@@ -341,6 +384,9 @@ def snapshot(
     else:
         target_artifacts = resolve_items(registry, artifacts, "artifacts", "artifact")
 
+    build_version = get_build_version()
+    output = pathlib.Path(str(output).format(build_version=build_version))
+
     with (
         use_registry_cache(
             registry,
@@ -351,7 +397,10 @@ def snapshot(
         ),
         timed_block(env.logger),
     ):
-        realized_artifacts = _realize_artifacts(target_artifacts)
+        realized_artifacts = _realize_artifacts(
+            target_artifacts,
+            use_versioned=versioned,
+        )
 
     # Convert to model data format using convert from utils
     model_data = convert(realized_artifacts)

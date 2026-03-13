@@ -238,6 +238,56 @@ def test_export_single_generator_step(
     assert "ISO-10303-21" in content
 
 
+def test_export_generator_filename_includes_build_version(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    tmp_path: pathlib.Path,
+):
+    """When get_build_version() returns a value, export-to-dir filename is stem.build_version.ext."""
+    from build123d import Box
+
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.get_build_version", lambda: "2.0"
+    )
+
+    class MockGen:
+        module = "examples"
+        name = "box_gen"
+
+        def func(self, payload):
+            return type("Obj", (), {"part": Box(5, 5, 5)})()
+
+    mock_registry = type(
+        "Registry",
+        (),
+        {"customizables": {"examples": {"box_gen": MockGen()}}, "caches": {}},
+    )()
+
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.collect_from_repo",
+        lambda cwd=None: mock_registry,
+    )
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "generators",
+                "export",
+                "-o",
+                str(tmp_path),
+                "box_gen",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    step_files = list(tmp_path.glob("*.step"))
+    assert len(step_files) == 1
+    assert step_files[0].name == "examples_box_gen.2.0.step"
+
+
 def test_snapshot_no_generators(
     cli_runner: CliRunner,
     fixtures_folder: pathlib.Path,
@@ -665,3 +715,38 @@ def test_export_payload_validation_passes(
 
     assert result.exit_code == 0
     assert (tmp_path / "out.step").exists()
+
+
+def test_realize_generator_result_model_and_versioned(monkeypatch: MonkeyPatch):
+    from mr import Customizable
+    from mr.data_types import Result
+    from pydantic import BaseModel
+
+    class Params(BaseModel):
+        value: int = 1
+
+    class DummyCustomizable(Customizable):  # type: ignore[misc]
+        def __init__(self):
+            # Minimal attributes used by _realize_generator and helpers
+            object.__setattr__(self, "module", "examples")
+            object.__setattr__(self, "name", "dummy")
+            object.__setattr__(self, "func", self._func)
+            object.__setattr__(self, "parameters_schema", Params)
+
+        def _func(self, params: Params):
+            return Result(model="primary", versioned="versioned")
+
+    from makerrepo_cli.cmds.generators.main import _realize_generator
+
+    customizable = DummyCustomizable()
+    params = Params()
+
+    realized = _realize_generator(customizable, params)
+    assert realized == "primary"
+
+    realized_versioned = _realize_generator(
+        customizable,
+        params,
+        use_versioned=True,
+    )
+    assert realized_versioned == "versioned"
