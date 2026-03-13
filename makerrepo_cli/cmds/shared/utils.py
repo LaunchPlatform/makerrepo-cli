@@ -11,6 +11,7 @@ from typing import Callable
 import click
 import questionary
 import rich
+from mr import BuildEnv
 from mr.data_types import Result
 from ocp_vscode import Camera
 from rich import box
@@ -39,6 +40,11 @@ EXPORT_FORMATS_3D = ("step", "stl", "brep", "gltf", "3mf")
 EXPORT_FORMATS_2D = ("svg", "dxf")
 EXPORT_FORMATS = (*EXPORT_FORMATS_3D, *EXPORT_FORMATS_2D)
 DEFAULT_EXPORT_FORMAT = "step"
+
+
+def get_build_version() -> str:
+    build_env = BuildEnv.from_local_git_repo()
+    return build_env.get_build_version()
 
 
 @enum.unique

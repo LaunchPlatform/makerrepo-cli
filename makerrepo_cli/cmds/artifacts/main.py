@@ -3,7 +3,6 @@ import logging
 import pathlib
 
 import click
-from mr import BuildEnv
 from ocp_vscode import Camera
 
 from ...core.cache import make_default_cache_service
@@ -20,6 +19,7 @@ from ..shared.utils import DEFAULT_COLORMAP
 from ..shared.utils import DEFAULT_EXPORT_FORMAT
 from ..shared.utils import EXPORT_FORMATS
 from ..shared.utils import export_shape_to_path
+from ..shared.utils import get_build_version
 from ..shared.utils import get_colormap
 from ..shared.utils import get_shape
 from ..shared.utils import item_display_name
@@ -36,11 +36,6 @@ from ..shared.utils import timed_block
 from .cli import cli
 
 logger = logging.getLogger(__name__)
-
-
-def get_build_version() -> str:
-    build_env = BuildEnv.from_local_git_repo()
-    return build_env.get_build_version()
 
 
 # Wrappers for tests that mock or use these directly
