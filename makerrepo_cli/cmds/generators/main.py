@@ -5,9 +5,9 @@ import sys
 
 import click
 import rich
+from mr import BuildEnv
 from mr import Customizable
 from mr import GeneratorValidationError
-from mr import get_build_version
 from ocp_vscode import Camera
 from pydantic import BaseModel
 from pydantic import ValidationError
@@ -39,6 +39,11 @@ from ..shared.utils import timed_block
 from .cli import cli
 
 logger = logging.getLogger(__name__)
+
+
+def get_build_version() -> str:
+    build_env = BuildEnv.from_local_git_repo()
+    return build_env.get_build_version()
 
 
 def _parse_payload(payload_str: str) -> dict:

@@ -3,7 +3,7 @@ import logging
 import pathlib
 
 import click
-from mr import get_build_version
+from mr import BuildEnv
 from ocp_vscode import Camera
 
 from ...core.cache import make_default_cache_service
@@ -36,6 +36,12 @@ from ..shared.utils import timed_block
 from .cli import cli
 
 logger = logging.getLogger(__name__)
+
+
+def get_build_version() -> str:
+    build_env = BuildEnv.from_local_git_repo()
+    return build_env.get_build_version()
+
 
 # Wrappers for tests that mock or use these directly
 _all_artifacts_flat = lambda registry: all_items_flat(registry, "artifacts")
