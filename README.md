@@ -1,5 +1,7 @@
 # makerrepo-cli
 
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/LaunchPlatform/makerrepo-cli/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/LaunchPlatform/makerrepo-cli/tree/master)
+
 Command-line tool for manufacturing as code with or without [MakerRepo](https://makerrepo.com) account.
 Build CAD models from code (e.g. Build123D), collect and work with artifacts locally, and run your full Manufacturing as Code workflow from your own machine—without depending on MakerRepo.com.
 
