@@ -140,6 +140,11 @@ def list_artifacts(env: Environment, output_format: str | None):
     is_flag=True,
     help="Use the versioned model for artifacts (if available)",
 )
+@click.option(
+    "--render-joints",
+    is_flag=True,
+    help="Draw build123d joint helpers in the CAD viewer (ocp_vscode show render_joints)",
+)
 @pass_env
 def view(
     env: Environment,
@@ -148,6 +153,7 @@ def view(
     camera: str,
     colormap: str,
     versioned: bool,
+    render_joints: bool,
 ):
     registry = collect_from_repo()
     if not registry.artifacts:
@@ -191,6 +197,8 @@ def view(
         "names": [item_safe_filename(a, "artifact") for a in target_artifacts],
         "reset_camera": camera_enum,
     }
+    if render_joints:
+        show_kwargs["render_joints"] = True
     effective_colormap = Colormap(colormap)
     cmap = get_colormap(effective_colormap)
     if cmap is not None:

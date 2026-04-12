@@ -187,6 +187,11 @@ def list_generators(env: Environment, output_format: str | None):
     is_flag=True,
     help="Use the versioned model for generator output (if available)",
 )
+@click.option(
+    "--render-joints",
+    is_flag=True,
+    help="Draw build123d joint helpers in the CAD viewer (ocp_vscode show render_joints)",
+)
 @pass_env
 def view(
     env: Environment,
@@ -196,6 +201,7 @@ def view(
     camera: str,
     colormap: str,
     versioned: bool,
+    render_joints: bool,
 ):
     registry = collect_from_repo()
     customizables = registry.customizables
@@ -242,6 +248,8 @@ def view(
 
     camera_enum = Camera[camera.upper()]
     show_kwargs: dict = {"port": port, "reset_camera": camera_enum}
+    if render_joints:
+        show_kwargs["render_joints"] = True
     cmap = get_colormap(Colormap(colormap))
     if cmap is not None:
         show_kwargs["colors"] = cmap

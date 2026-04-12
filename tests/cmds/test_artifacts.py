@@ -251,6 +251,40 @@ async def test_view_camera_config(
     assert config.get("reset_camera") == expected_reset_camera
 
 
+@pytest.mark.asyncio
+async def test_view_render_joints_option(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+    unused_tcp_port: int,
+    ws_server: websockets.WebSocketServer,
+    msg_handler: MockMsgHandler,
+):
+    def operate():
+        with switch_cwd(fixtures_folder):
+            from makerrepo_cli.cmds.artifacts.main import _all_artifacts_flat
+            from makerrepo_cli.core.repo.repo import collect_from_repo
+
+            registry = collect_from_repo()
+            flat = list(_all_artifacts_flat(registry))
+            first_artifact = flat[0][2]
+            monkeypatch.setattr(
+                "makerrepo_cli.cmds.artifacts.main._prompt_artifact_selection",
+                lambda reg: [first_artifact],
+            )
+            result = cli_runner.invoke(
+                cli,
+                ["artifacts", "view", "-p", unused_tcp_port, "--render-joints"],
+                catch_exceptions=False,
+            )
+        assert result.exit_code == 0
+
+    await asyncio.wait_for(asyncio.to_thread(operate), 10)
+    assert len(msg_handler.data_msgs) == 1
+    payload = json.loads(msg_handler.data_msgs[0])
+    assert payload.get("config", {}).get("render_joints") is True
+
+
 def test_view_camera_invalid(
     monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,

@@ -402,6 +402,47 @@ def test_view_camera_option(
     assert show_kwargs.get("reset_camera") == Camera.ISO
 
 
+def test_view_render_joints_option(
+    monkeypatch: MonkeyPatch,
+    cli_runner: CliRunner,
+    fixtures_folder: pathlib.Path,
+):
+    show_kwargs: dict = {}
+
+    def capturing_show(*args, **kwargs):
+        show_kwargs.clear()
+        show_kwargs.update(kwargs)
+
+    monkeypatch.setattr("ocp_vscode.show", capturing_show)
+
+    class MockGen:
+        module = "examples"
+        name = "box_gen"
+
+        def func(self, payload):
+            return object()
+
+    mock_registry = type(
+        "Registry",
+        (),
+        {"customizables": {"examples": {"box_gen": MockGen()}}, "caches": {}},
+    )()
+    monkeypatch.setattr(
+        "makerrepo_cli.cmds.generators.main.collect_from_repo",
+        lambda cwd=None: mock_registry,
+    )
+
+    with switch_cwd(fixtures_folder):
+        result = cli_runner.invoke(
+            cli,
+            ["generators", "view", "-p", "{}", "--render-joints"],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0
+    assert show_kwargs.get("render_joints") is True
+
+
 def test_view_camera_invalid(
     monkeypatch: MonkeyPatch,
     cli_runner: CliRunner,
