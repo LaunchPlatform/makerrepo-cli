@@ -70,7 +70,6 @@ ShapePart = Union[Part, ShapeGroup]
 class Shapes(ShapeGroup):
     version: int
     normal_len: int
-    bb: BoundingBox
 
 
 class OcpData(BaseModel):
