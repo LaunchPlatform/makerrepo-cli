@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from typing import Any
+from typing import Union
 
 from pydantic import BaseModel
 
@@ -51,14 +54,23 @@ class Part(BaseModel):
     bb: BoundingBox | None = None
 
 
-class Shapes(BaseModel):
+class ShapeGroup(BaseModel):
     version: int
-    parts: list[Part]
+    parts: list[ShapePart]
     loc: list[list[float]]
     name: str
     id: str
+    normal_len: int | None = None
+    bb: BoundingBox | None = None
+
+
+ShapePart = Union[Part, ShapeGroup]
+
+
+class Shapes(ShapeGroup):
+    version: int
     normal_len: int
-    bb: BoundingBox | None
+    bb: BoundingBox
 
 
 class OcpData(BaseModel):
